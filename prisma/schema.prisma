@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MatchStatus {
+  WAITING
+  RUNNING
+  FINISHED
+  CANCELLED
+}
+
+enum MatchSide {
+  PLAYER_1
+  PLAYER_2
+}
+
+model Player {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  displayName  String
+  passwordHash String
+
+  rating       Int      @default(1000)
+  level        Int      @default(1)
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  playerCards  PlayerCard[]
+  matchPlayers MatchPlayer[]
+
+  @@index([rating])
+}
+
+model Card {
+  id             String   @id @default(uuid())
+  name           String   @unique
+
+  cost           Int
+  baseHp         Int
+  baseDamage     Int
+  attackSpeed    Float
+  movementSpeed  Float
+  range          Float
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  playerCards    PlayerCard[]
+}
+
+model PlayerCard {
+  id       String @id @default(uuid())
+
+  playerId String
+  cardId   String
+
+  level    Int      @default(1)
+
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  card     Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, cardId])
+  @@index([playerId])
+  @@index([cardId])
+}
+
+model Match {
+  id          String      @id @default(uuid())
+
+  status      MatchStatus @default(WAITING)
+
+  startedAt  DateTime?
+  endedAt    DateTime?
+
+  winnerId   String?
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  players    MatchPlayer[]
+
+  @@index([status])
+  @@index([winnerId])
+}
+
+model MatchPlayer {
+  matchId  String
+  playerId String
+
+  side     MatchSide
+
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, playerId])
+  @@unique([matchId, side])
+  @@index([playerId])
+}
