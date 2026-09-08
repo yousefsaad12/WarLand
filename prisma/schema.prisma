@@ -22,7 +22,8 @@ enum MatchSide {
 model Player {
   id           String   @id @default(uuid())
   username     String   @unique
-  displayName  String
+  displayName  String   
+  tag String
   passwordHash String
 
   rating       Int      @default(1000)
@@ -35,7 +36,8 @@ model Player {
 
   playerCards  PlayerCard[]
   matchPlayers MatchPlayer[]
-
+  
+  @@unique([displayName, tag], name: "displayName_tag")
   @@index([rating])
 }
 
