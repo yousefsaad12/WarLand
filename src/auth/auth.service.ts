@@ -33,7 +33,7 @@ export class AuthService {
           select: this.publicPlayerSelect,
         });
 
-        return this.withToken(player);
+        return await this.withToken(player);
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&

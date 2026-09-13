@@ -6,7 +6,7 @@ export class PlayerService {
   constructor(private readonly db: DbService) {}
 
   async findMe(id: string) {
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async findById(id: string) {

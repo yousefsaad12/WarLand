@@ -16,30 +16,30 @@ export class PlayerController {
 
   @Get('players/me')
   @UseGuards(AuthGuard)
-  getMe(@CurrentUser() user: AuthUser) {
-    return this.playerService.findMe(user.sub);
+  async getMe(@CurrentUser() user: AuthUser) {
+    return await this.playerService.findMe(user.sub);
   }
 
   @Get('players/:displayName/:tag')
-  getPlayer(
+  async getPlayer(
     @Param('displayName') displayName: string,
     @Param('tag') tag: string,
   ) {
-    return this.playerService.findByIdentity(displayName, tag);
+    return await this.playerService.findByIdentity(displayName, tag);
   }
 
   @Get('players/:displayName/:tag/stats')
-  getStats(
+  async getStats(
     @Param('displayName') displayName: string,
     @Param('tag') tag: string,
   ) {
-    return this.playerService.getStatsByIdentity(displayName, tag);
+    return await this.playerService.getStatsByIdentity(displayName, tag);
   }
 
   @Get('leaderboard')
-  getLeaderboard(
+  async getLeaderboard(
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    return this.playerService.getLeaderboard(Math.min(limit ?? 100, 100));
+    return await this.playerService.getLeaderboard(Math.min(limit ?? 100, 100));
   }
 }
