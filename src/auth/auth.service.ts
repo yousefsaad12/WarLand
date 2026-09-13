@@ -20,17 +20,34 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const passwordHash = await hash(dto.password, 12);
+    const defaultCards = await this.db.card.findMany({
+      select: { id: true },
+    });
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {
-        const player = await this.db.player.create({
-          data: {
-            username: dto.username,
-            displayName: dto.displayName,
-            tag: await this.generateUniqueTag(dto.displayName),
-            passwordHash,
-          },
-          select: this.publicPlayerSelect,
+        const tag = await this.generateUniqueTag(dto.displayName);
+        const player = await this.db.$transaction(async (transaction) => {
+          const createdPlayer = await transaction.player.create({
+            data: {
+              username: dto.username,
+              displayName: dto.displayName,
+              tag,
+              passwordHash,
+            },
+            select: this.publicPlayerSelect,
+          });
+
+          if (defaultCards.length > 0) {
+            await transaction.playerCard.createMany({
+              data: defaultCards.map((card) => ({
+                playerId: createdPlayer.id,
+                cardId: card.id,
+              })),
+            });
+          }
+
+          return createdPlayer;
         });
 
         return await this.withToken(player);

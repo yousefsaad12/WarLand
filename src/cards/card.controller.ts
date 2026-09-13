@@ -12,9 +12,10 @@ export class CardController {
     return await this.cardService.findAll();
   }
 
-  @Get('players/me/cards')
+  @Get('me/cards')
   @UseGuards(AuthGuard)
   async getMyCards(@CurrentUser() user: AuthUser) {
+    
     return await this.cardService.findOwnedByPlayer(user.sub);
   }
 }
