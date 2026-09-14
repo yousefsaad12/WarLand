@@ -5,9 +5,10 @@ import { CardModule } from './cards/card.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { PlayerModule } from './players/player.module.js';
+import { MatchmakingModule } from './matchmaking/matchmaking.module.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule, PlayerModule, CardModule],
+  imports: [PrismaModule, AuthModule, PlayerModule, CardModule, MatchmakingModule],
   controllers: [AppController],
   providers: [AppService],
 })
