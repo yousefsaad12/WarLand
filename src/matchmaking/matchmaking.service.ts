@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DbService } from '../prisma/db.js';
-import { RedisService } from '../redis/redis.js';
+import { RedisService } from '../redis/redis.service.js';
 @Injectable()
 export class MatchmakingService {
   constructor(
