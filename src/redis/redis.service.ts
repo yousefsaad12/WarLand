@@ -15,7 +15,7 @@ export class RedisService
   }
 
   onModuleInit() {
-    const scriptPath = path.join(__dirname, 'lua/match.lua');
+    const scriptPath = path.join(import.meta.dirname, 'lua/match.lua');
     const script = fs.readFileSync(scriptPath, 'utf-8');
 
     this.defineCommand('findAndClaimMatch', {
