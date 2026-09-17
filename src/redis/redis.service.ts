@@ -25,7 +25,7 @@ export class RedisService
   }
 
   onModuleDestroy() {
-    this.disconnect();
+    this.quit();
   }
 
   declare findAndClaimMatch: (
@@ -33,5 +33,5 @@ export class RedisService
     playerId: string,
     minScore: number,
     maxScore: number,
-  ) => Promise<string | null>;
+  ) => Promise<string[] | null>;
 }

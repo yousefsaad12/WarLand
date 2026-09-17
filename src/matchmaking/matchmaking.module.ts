@@ -5,9 +5,10 @@ import { MatchmakingService } from './matchmaking.service.js';
 import { MatchmakingGateway } from './matchmaking.gateway.js';
 import { RedisModule } from '../redis/redis.module.js';
 
+
 @Module({
   imports: [AuthModule, RedisModule],
-  controllers: [], // Removed MatchmakingController
+  controllers: [], 
   providers: [MatchmakingService, MatchmakingGateway],
 })
 export class MatchmakingModule {}
