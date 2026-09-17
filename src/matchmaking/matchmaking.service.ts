@@ -1,6 +1,9 @@
+// src/matchmaking/matchmaking.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Server } from 'socket.io';
 import { DbService } from '../prisma/db.js';
 import { RedisService } from '../redis/redis.service.js';
+
 @Injectable()
 export class MatchmakingService {
   constructor(
@@ -8,7 +11,7 @@ export class MatchmakingService {
     private readonly redis: RedisService,
   ) {}
 
-  async joinMatchmaking(playerId: string) {
+  async processMatchmaking(playerId: string, socketId: string, server: Server) {
     const player = await this.db.player.findUnique({
       where: { id: playerId },
       select: {
@@ -24,26 +27,47 @@ export class MatchmakingService {
     });
 
     if (!player) {
-      throw new NotFoundException('Player not found');
+      server.to(socketId).emit('match_error', { message: 'Player not found' });
+      return;
     }
 
     const playerScore = this.calculatePlayerScore(player);
     await this.joinMatchQueue(playerId, playerScore);
 
-    const opponentId = await this.searchForMatch(playerId, playerScore, 100);
-    if (!opponentId) {
-      return {
-        status: 'waiting',
-      };
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const POLL_INTERVAL_MS = 2000;    // Check every 2s
+    const startTime = Date.now();
+    let searchRange = 100;
+
+    while (Date.now() - startTime < TIMEOUT_MS) {
+      // Abort loop if player cancelled or disconnected (metadata removed)
+      const isQueued = await this.redis.hexists(`matchmaking_meta:${playerId}`, 'joinedAt');
+      if (!isQueued) return;
+
+      const opponentId = await this.searchForMatch(playerId, playerScore, searchRange);
+
+      if (opponentId) {
+        const matchId = `match_${Date.now()}`;
+
+        // Notify searching player
+        server.to(socketId).emit('match_found', { matchId, opponentId });
+        
+        // Clean up metadata
+        await this.leaveQueue(playerId);
+        await this.leaveQueue(opponentId);
+        return;
+      }
+
+      // Expand search tolerance over time
+      searchRange += 25;
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 
-    await this.removeFromMatchQueue(playerId);
-    await this.removeFromMatchQueue(opponentId);
-
-    return {
-      status: 'matched',
-      opponentId,
-    };
+    // 5-minute timeout reached
+    await this.leaveQueue(playerId);
+    server.to(socketId).emit('match_timeout', {
+      message: 'No opponent found within 5 minutes.',
+    });
   }
 
   private calculatePlayerScore(player: {
@@ -80,16 +104,15 @@ export class MatchmakingService {
     const minScore = playerScore - searchRange;
     const maxScore = playerScore + searchRange;
 
-    const candidates = await this.redis.zrangebyscore(
+    return await this.redis.findAndClaimMatch(
       'matchmaking_queue',
+      playerId,
       minScore,
       maxScore,
     );
-
-    return candidates.find((id) => id !== playerId) ?? null;
   }
 
-  private async removeFromMatchQueue(playerId: string) {
+  async leaveQueue(playerId: string) {
     await this.redis
       .multi()
       .zrem('matchmaking_queue', playerId)
