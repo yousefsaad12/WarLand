@@ -4,11 +4,11 @@ import { AuthModule } from '../auth/auth.module.js';
 import { MatchmakingService } from './matchmaking.service.js';
 import { MatchmakingGateway } from './matchmaking.gateway.js';
 import { RedisModule } from '../redis/redis.module.js';
-
+import { ActivePlayers } from './active-players.store.js';
 
 @Module({
   imports: [AuthModule, RedisModule],
-  controllers: [], 
-  providers: [MatchmakingService, MatchmakingGateway],
+  controllers: [],
+  providers: [MatchmakingService, MatchmakingGateway, ActivePlayers],
 })
 export class MatchmakingModule {}

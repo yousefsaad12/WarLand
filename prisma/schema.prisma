@@ -8,15 +8,8 @@ datasource db {
 }
 
 enum MatchStatus {
-  WAITING
-  RUNNING
+  PLAYING
   FINISHED
-  CANCELLED
-}
-
-enum MatchSide {
-  PLAYER_1
-  PLAYER_2
 }
 
 model Player {
@@ -75,34 +68,28 @@ model PlayerCard {
 }
 
 model Match {
-  id          String      @id @default(uuid())
+  id        String      @id @default(uuid())
+  status    MatchStatus @default(PLAYING)
+  startedAt DateTime    @default(now())
+  endedAt   DateTime?
+  createdAt DateTime    @default(now())
 
-  status      MatchStatus @default(WAITING)
-
-  startedAt  DateTime?
-  endedAt    DateTime?
-
-  winnerId   String?
-
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-
-  players    MatchPlayer[]
+  players   MatchPlayer[]
 
   @@index([status])
-  @@index([winnerId])
+  @@index([createdAt])
 }
 
 model MatchPlayer {
   matchId  String
   playerId String
 
-  side     MatchSide
+  isWinner Boolean @default(false)
 
   match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
   player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@id([matchId, playerId])
-  @@unique([matchId, side])
   @@index([playerId])
+  @@index([matchId, isWinner])
 }

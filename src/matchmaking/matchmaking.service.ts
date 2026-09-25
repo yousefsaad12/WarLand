@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { DbService } from '../prisma/db.js';
 import { RedisService } from '../redis/redis.service.js';
-
+import { ActivePlayers } from './active-players.store.js';
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const POLL_INTERVAL_MS = 2000;
 
@@ -12,6 +12,7 @@ export class MatchmakingService {
   constructor(
     private readonly db: DbService,
     private readonly redis: RedisService,
+    private readonly activePlayers: ActivePlayers,
   ) {}
 
   async processMatchmaking(playerId: string, socketId: string, server: Server) {
@@ -58,14 +59,18 @@ export class MatchmakingService {
       server.to(socketId).emit('match_error', { message: 'Player not found' });
       return;
     }
+    if (this.activePlayers.isActive(playerId)) {
+      server.to(socketId).emit('match_error', {
+        message: 'You are already in the matchmaking queue.',
+      });
+      return;
+    }
 
     const playerScore = this.calculatePlayerScore(player);
     await this.joinMatchQueue(playerId, playerScore, socketId);
 
     const startTime = Date.now();
-
     while (Date.now() - startTime < TIMEOUT_MS) {
-      // Abort loop if player cancelled or disconnected (metadata removed)
       const isQueued = await this.redis.hexists(
         `matchmaking_meta:${playerId}`,
         'joinedAt',
@@ -81,16 +86,25 @@ export class MatchmakingService {
       );
 
       if (match) {
-        // TODO: replace with your actual Match/MatchPlayers Prisma schema once finalized
-        const matchId = `match_${Date.now()}`; // placeholder until db.match.create() is wired up
+        const matchData = await this.db.match.create({
+          data: {
+            players: {
+              create: [{ playerId: playerId }, { playerId: match.opponentId }],
+            },
+          },
+          select: { id: true },
+        });
 
+        this.activePlayers.addPlayer(playerId, matchData.id);
+        this.activePlayers.addPlayer(match.opponentId, matchData.id);
+        
         server.to(socketId).emit('match_found', {
-          matchId,
+          matchId: matchData.id,
           opponentId: match.opponentId,
         });
         if (match.opponentSocketId) {
           server.to(match.opponentSocketId).emit('match_found', {
-            matchId,
+            matchId: matchData.id,
             opponentId: playerId,
           });
         }
