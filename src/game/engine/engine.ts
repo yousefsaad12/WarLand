@@ -651,9 +651,6 @@ function segmentCircleEntryFraction(
   const projection =
     ((center.x - start.x) * dx + (center.y - start.y) * dy) /
     lengthSquared;
-  if (projection < 0 || projection > 1) {
-    return undefined;
-  }
 
   const closestX = start.x + projection * dx;
   const closestY = start.y + projection * dy;
@@ -667,7 +664,8 @@ function segmentCircleEntryFraction(
       lengthSquared,
   );
   const entry = projection - halfChord;
-  if (entry < -POSITION_EPSILON || entry > 1 + POSITION_EPSILON) {
+  const exit = projection + halfChord;
+  if (exit < -POSITION_EPSILON || entry > 1 + POSITION_EPSILON) {
     return undefined;
   }
 

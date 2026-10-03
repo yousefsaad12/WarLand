@@ -86,6 +86,16 @@ export class MatchmakingService {
       );
 
       if (match) {
+        const opponent = await this.db.player.findUnique({
+          where: { id: match.opponentId },
+          select: { displayName: true, tag: true },
+        });
+        if (!opponent) {
+          throw new Error(
+            `Matched opponent ${match.opponentId} no longer exists`,
+          );
+        }
+
         const matchData = await this.db.match.create({
           data: {
             players: {
@@ -97,15 +107,19 @@ export class MatchmakingService {
 
         this.activePlayers.addPlayer(playerId, matchData.id);
         this.activePlayers.addPlayer(match.opponentId, matchData.id);
-        
+
         server.to(socketId).emit('match_found', {
           matchId: matchData.id,
           opponentId: match.opponentId,
+          opponentName: opponent.displayName,
+          opponentTag: opponent.tag,
         });
         if (match.opponentSocketId) {
           server.to(match.opponentSocketId).emit('match_found', {
             matchId: matchData.id,
             opponentId: playerId,
+            opponentName: player.displayName,
+            opponentTag: player.tag,
           });
         }
         return;

@@ -4,80 +4,19 @@ import {
   advanceMatch,
   createMatchState,
   toMatchView,
-  type CardSnapshot,
   type DeployCommand,
-  type GameRules,
   type GameSide,
   type MatchState,
 } from './engine/engine.js';
+import { DEFAULT_GAME_RULES, STARTER_CARDS } from './balance.js';
 
-const ticksPerSecond = 10;
-const rules: GameRules = {
-  ticksPerSecond,
-  maxTicks: 3 * 60 * ticksPerSecond,
-  startingEnergyHundredths: 500,
-  maxEnergyHundredths: 1000,
-  energyRegenHundredthsPerTick: 5,
-  baseHp: 100,
-  baseTurret: {
-    damage: 4,
-    attackSpeed: 1,
-    range: 8,
-  },
-};
-
-const starterCards: CardSnapshot[] = [
-  {
-    cardId: 'knight',
-    name: 'Knight',
-    level: 1,
-    cost: 2,
-    hp: 60,
-    damage: 10,
-    attackSpeed: 1,
-    movementSpeed: 8,
-    range: 2,
-  },
-  {
-    cardId: 'archer',
-    name: 'Archer',
-    level: 1,
-    cost: 3,
-    hp: 30,
-    damage: 7,
-    attackSpeed: 1.5,
-    movementSpeed: 7,
-    range: 12,
-  },
-  {
-    cardId: 'guard',
-    name: 'Guard',
-    level: 1,
-    cost: 2,
-    hp: 80,
-    damage: 6,
-    attackSpeed: 0.8,
-    movementSpeed: 5,
-    range: 2,
-  },
-  {
-    cardId: 'scout',
-    name: 'Scout',
-    level: 1,
-    cost: 1,
-    hp: 25,
-    damage: 4,
-    attackSpeed: 2,
-    movementSpeed: 12,
-    range: 2,
-  },
-];
+const ticksPerSecond = DEFAULT_GAME_RULES.ticksPerSecond;
 
 let state: MatchState = createMatchState(
   'terminal-demo',
-  { playerId: 'left-player', cards: starterCards },
-  { playerId: 'right-player', cards: starterCards },
-  rules,
+  { playerId: 'left-player', cards: STARTER_CARDS },
+  { playerId: 'right-player', cards: STARTER_CARDS },
+  DEFAULT_GAME_RULES,
 );
 
 const pendingCommands: DeployCommand[] = [];
@@ -185,9 +124,9 @@ function onKeypress(
     if (key.name === 'r') {
       state = createMatchState(
         `terminal-demo-${Date.now()}`,
-        { playerId: 'left-player', cards: starterCards },
-        { playerId: 'right-player', cards: starterCards },
-        rules,
+        { playerId: 'left-player', cards: STARTER_CARDS },
+        { playerId: 'right-player', cards: STARTER_CARDS },
+        DEFAULT_GAME_RULES,
       );
       lastDeployMessage = 'New match started.';
       tickTimer = setInterval(advanceGame, 1000 / ticksPerSecond);
@@ -260,7 +199,7 @@ function selectSide(side: GameSide): void {
 }
 
 function deploySelectedCard(): void {
-  const card = starterCards[selectedCardIndex];
+  const card = STARTER_CARDS[selectedCardIndex];
   if (!card) {
     lastDeployMessage = 'Select a valid card first.';
     return;
@@ -324,7 +263,7 @@ function renderScreen(): void {
   );
   const secondsLeft = Math.ceil((view.maxTicks - view.tick) / view.ticksPerSecond);
   const side = view.players[selectedSide];
-  const cardLines = starterCards.map((card, index) => {
+  const cardLines = STARTER_CARDS.map((card, index) => {
     const marker = index === selectedCardIndex ? '>' : ' ';
     const affordability = side.energyHundredths >= card.cost * 100 ? 'ready' : 'need energy';
     return `${marker} ${index + 1}. ${card.name.padEnd(7)} cost ${card.cost}  ${affordability}`;
@@ -455,7 +394,7 @@ function printHelp(): void {
   console.log('  status');
   console.log('  help');
   console.log('  quit');
-  console.log('Cards: knight, archer, guard, scout');
+  console.log(`Cards: ${STARTER_CARDS.map((card) => card.cardId).join(', ')}`);
   console.log('Map coordinates are 0-100; left deploys at x <= 50, right at x >= 50.');
   console.log('Temporary demo stats are used; each player is controlled from this terminal.');
 }
