@@ -10,8 +10,9 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MatchmakingService } from './matchmaking.service.js';
 import { createWsAuthMiddleware } from './ws-auth.middleware.js';
+import { getWebSocketCorsOrigin } from '../auth/ws-cors.options.js';
 
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({ cors: { origin: getWebSocketCorsOrigin() } })
 export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server: Server;

@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import { DbService } from '../prisma/db.js';
 import { RedisService } from '../redis/redis.service.js';
 import { ActivePlayers } from './active-players.store.js';
+import { GameplayService } from '../gameplay/gameplay.service.js';
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const POLL_INTERVAL_MS = 2000;
 
@@ -13,6 +14,7 @@ export class MatchmakingService {
     private readonly db: DbService,
     private readonly redis: RedisService,
     private readonly activePlayers: ActivePlayers,
+    private readonly gameplayService: GameplayService,
   ) {}
 
   async processMatchmaking(playerId: string, socketId: string, server: Server) {
@@ -104,6 +106,25 @@ export class MatchmakingService {
           },
           select: { id: true },
         });
+
+        try {
+          await this.gameplayService.startMatch(
+            matchData.id,
+            playerId,
+            match.opponentId,
+          );
+        } catch (error) {
+          await this.db.match.delete({ where: { id: matchData.id } });
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Could not start the game.';
+          server.to(socketId).emit('match_error', { message });
+          if (match.opponentSocketId) {
+            server.to(match.opponentSocketId).emit('match_error', { message });
+          }
+          return;
+        }
 
         this.activePlayers.addPlayer(playerId, matchData.id);
         this.activePlayers.addPlayer(match.opponentId, matchData.id);

@@ -18,11 +18,47 @@ interface MatchFound {
   opponentTag: string;
 }
 
+interface GameUnit {
+  owner: 'LEFT' | 'RIGHT';
+  cardName: string;
+  x: number;
+  y: number;
+  hp: number;
+}
+
+interface GameView {
+  matchId: string;
+  status: string;
+  tick: number;
+  maxTicks: number;
+  ticksPerSecond: number;
+  players: Record<
+    'LEFT' | 'RIGHT',
+    {
+      playerId: string;
+      baseHp: number;
+      energyHundredths: number;
+      cards: Array<{ cardId: string; name: string; cost: number }>;
+    }
+  >;
+  units: GameUnit[];
+}
+
+interface GameStarted {
+  matchId: string;
+  side: 'LEFT' | 'RIGHT';
+  state: GameView;
+}
+
 let socket: Socket | undefined;
+let gameplaySocket: Socket | undefined;
 let input: ReturnType<typeof createInterface> | undefined;
 let inQueue = false;
 let matchFound = false;
 let closing = false;
+let activeMatchId: string | undefined;
+let gameState: GameView | undefined;
+let nextDeployRequestId = 1;
 
 async function main(): Promise<void> {
   const prompts = createPromptInterface({ input: stdin, output: stdout });
@@ -86,13 +122,8 @@ async function main(): Promise<void> {
     inQueue = false;
     matchFound = true;
     console.log(`Match found: ${payload.matchId}`);
-    console.log(
-      `Opponent: ${payload.opponentName}#${payload.opponentTag} `,
-    );
-    console.log(
-      'This server currently provides matchmaking only; it has no game-state or deploy WebSocket events yet.',
-    );
-    console.log('Type "quit" to disconnect.');
+    console.log(`Opponent: ${payload.opponentName}#${payload.opponentTag} `);
+    connectToGameplay(serverUrl, login.accessToken, payload.matchId);
   });
   socket.on('disconnect', (reason: string) => {
     if (!closing) {
@@ -101,7 +132,9 @@ async function main(): Promise<void> {
   });
 
   input = createInterface({ input: stdin, output: stdout });
-  console.log('Commands: leave (while searching), quit, help');
+  console.log(
+    'Commands: leave (while searching), deploy <card-id> <x> <y>, status, quit, help',
+  );
   input.on('line', handleCommand);
   input.on('close', closeClient);
   process.once('SIGINT', closeClient);
@@ -189,26 +222,155 @@ async function promptPassword(): Promise<string> {
 }
 
 function handleCommand(line: string): void {
-  const command = line.trim().toLowerCase();
-  if (command === 'help') {
-    console.log('Commands: leave (while searching), quit');
+  const [command, ...args] = line.trim().split(/\s+/);
+  const normalizedCommand = command?.toLowerCase();
+  if (normalizedCommand === 'help') {
+    console.log(
+      'Commands: leave (while searching), deploy <card-id> <x> <y>, status, quit',
+    );
     return;
   }
-  if (command === 'leave') {
+  if (normalizedCommand === 'status') {
+    if (gameState) {
+      printGameState(gameState);
+    } else {
+      console.log('No active game state is available yet.');
+    }
+    return;
+  }
+  if (normalizedCommand === 'deploy') {
+    if (!activeMatchId || !gameplaySocket?.connected) {
+      console.log('You are not connected to an active game.');
+      return;
+    }
+    const [cardId, rawX, rawY] = args;
+    const x = Number(rawX);
+    const y = Number(rawY);
+    if (
+      !cardId ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      args.length !== 3
+    ) {
+      console.log('Usage: deploy <card-id> <x> <y>');
+      return;
+    }
+    const requestId = `terminal-${nextDeployRequestId++}`;
+    gameplaySocket.emit('deploy', { requestId, cardId, x, y });
+    console.log(`Deployment ${requestId} sent to the server.`);
+    return;
+  }
+  if (normalizedCommand === 'leave') {
     if (inQueue) {
       socket?.emit('leave_queue');
     } else if (matchFound) {
-      console.log('A match was found; the server has no match-cancel event.');
+      console.log('A match was found; use "quit" to disconnect.');
     } else {
       console.log('You are not currently in the matchmaking queue.');
     }
     return;
   }
-  if (command === 'quit' || command === 'exit') {
+  if (normalizedCommand === 'quit' || normalizedCommand === 'exit') {
     closeClient();
     return;
   }
   console.log('Unknown command. Type "help" for available commands.');
+}
+
+function connectToGameplay(
+  serverUrl: string,
+  accessToken: string,
+  matchId: string,
+): void {
+  activeMatchId = matchId;
+  gameplaySocket = io(`${serverUrl.replace(/\/+$/, '')}/gameplay`, {
+    auth: { token: accessToken },
+    transports: ['websocket'],
+    timeout: 10_000,
+    reconnection: false,
+  });
+
+  gameplaySocket.on('connect', () => {
+    gameplaySocket?.emit('join_game', { matchId });
+  });
+  gameplaySocket.on('connect_error', (error: Error) => {
+    console.error(`Gameplay connection failed: ${error.message}`);
+  });
+  gameplaySocket.on('game_started', (payload: unknown) => {
+    if (!isGameStarted(payload)) {
+      console.error('The server returned an invalid game_started message.');
+      return;
+    }
+    gameState = payload.state;
+    console.log(`Joined the game as ${payload.side}.`);
+    console.log('Deploy cards with: deploy <card-id> <x> <y>');
+    console.log(
+      `Your cards: ${payload.state.players[payload.side].cards
+        .map((card) => `${card.name} (${card.cardId})`)
+        .join(', ')}`,
+    );
+    printGameState(payload.state);
+  });
+  gameplaySocket.on('game_state', (payload: unknown) => {
+    if (!isGameView(payload)) {
+      console.error('The server returned an invalid game_state message.');
+      return;
+    }
+    gameState = payload;
+    if (payload.tick % Math.max(1, payload.ticksPerSecond) === 0) {
+      printGameState(payload);
+    }
+  });
+  gameplaySocket.on('deploy_queued', (payload: unknown) => {
+    if (isRecord(payload) && typeof payload.requestId === 'string') {
+      console.log(`Deployment ${payload.requestId} is queued for validation.`);
+    }
+  });
+  gameplaySocket.on('deploy_result', (payload: unknown) => {
+    if (!isRecord(payload)) {
+      console.error('The server returned an invalid deploy_result message.');
+      return;
+    }
+    console.log(
+      `Deployment ${String(payload.requestId ?? '')}: ` +
+        `${String(payload.status)}${payload.reason ? ` (${String(payload.reason)})` : ''}`,
+    );
+  });
+  gameplaySocket.on('match_finished', (payload: unknown) => {
+    if (!isRecord(payload) || !isRecord(payload.result)) {
+      console.error('The server returned an invalid match_finished message.');
+      return;
+    }
+    console.log(
+      `Match finished: ${String(payload.result.winner ?? 'DRAW')} ` +
+        `(${String(payload.result.reason)}).`,
+    );
+    activeMatchId = undefined;
+  });
+  gameplaySocket.on('game_error', (payload: unknown) => {
+    console.error(`Gameplay error: ${messageFrom(payload)}`);
+  });
+}
+
+function printGameState(view: GameView): void {
+  const left = view.players.LEFT;
+  const right = view.players.RIGHT;
+  console.log(
+    `\nMatch ${view.matchId} | Tick ${view.tick}/${view.maxTicks} | ${view.status}`,
+  );
+  console.log(
+    `LEFT base ${left.baseHp} HP, energy ${(left.energyHundredths / 100).toFixed(2)} | ` +
+      `RIGHT base ${right.baseHp} HP, energy ${(right.energyHundredths / 100).toFixed(2)}`,
+  );
+  if (view.units.length === 0) {
+    console.log('No units deployed yet.');
+    return;
+  }
+  for (const unit of view.units) {
+    console.log(
+      `  ${unit.owner} ${unit.cardName} at (${unit.x.toFixed(1)}, ${unit.y.toFixed(1)}) — ${unit.hp} HP`,
+    );
+  }
 }
 
 function closeClient(): void {
@@ -219,6 +381,7 @@ function closeClient(): void {
   if (inQueue && !matchFound) {
     socket?.emit('leave_queue');
   }
+  gameplaySocket?.disconnect();
   socket?.disconnect();
   input?.close();
 }
@@ -240,6 +403,61 @@ function isMatchFound(value: unknown): value is MatchFound {
     typeof value.opponentId === 'string' &&
     typeof value.opponentName === 'string' &&
     typeof value.opponentTag === 'string'
+  );
+}
+
+function isGameStarted(value: unknown): value is GameStarted {
+  return (
+    isRecord(value) &&
+    typeof value.matchId === 'string' &&
+    (value.side === 'LEFT' || value.side === 'RIGHT') &&
+    isGameView(value.state)
+  );
+}
+
+function isGameView(value: unknown): value is GameView {
+  if (
+    !isRecord(value) ||
+    typeof value.matchId !== 'string' ||
+    typeof value.status !== 'string' ||
+    typeof value.tick !== 'number' ||
+    typeof value.maxTicks !== 'number' ||
+    typeof value.ticksPerSecond !== 'number' ||
+    !isRecord(value.players) ||
+    !Array.isArray(value.units)
+  ) {
+    return false;
+  }
+
+  return (
+    isPlayerView(value.players.LEFT) &&
+    isPlayerView(value.players.RIGHT) &&
+    value.units.every(
+      (unit) =>
+        isRecord(unit) &&
+        (unit.owner === 'LEFT' || unit.owner === 'RIGHT') &&
+        typeof unit.cardName === 'string' &&
+        typeof unit.x === 'number' &&
+        typeof unit.y === 'number' &&
+        typeof unit.hp === 'number',
+    )
+  );
+}
+
+function isPlayerView(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.playerId === 'string' &&
+    typeof value.baseHp === 'number' &&
+    typeof value.energyHundredths === 'number' &&
+    Array.isArray(value.cards) &&
+    value.cards.every(
+      (card) =>
+        isRecord(card) &&
+        typeof card.cardId === 'string' &&
+        typeof card.name === 'string' &&
+        typeof card.cost === 'number',
+    )
   );
 }
 
