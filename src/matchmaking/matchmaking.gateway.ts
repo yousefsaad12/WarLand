@@ -55,8 +55,6 @@ export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
         this.server,
       );
     } catch (error) {
-      this.activeSockets.delete(client.id);
-
       console.error(
         `Matchmaking process failed for player ${playerId}:`,
         error,
@@ -65,6 +63,8 @@ export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
       client.emit('match_error', {
         message: 'Matchmaking failed, please try again.',
       });
+    } finally {
+      this.activeSockets.delete(client.id);
     }
   }
 

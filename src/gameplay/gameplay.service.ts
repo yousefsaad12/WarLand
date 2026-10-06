@@ -1,139 +1,98 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import type { Namespace } from 'socket.io';
-import { DbService } from '../prisma/db.js';
-import { ActivePlayers } from '../matchmaking/active-players.store.js';
-import { DEFAULT_GAME_RULES } from '../game/balance.js';
 import {
-  GAME_SIDE,
-  advanceMatch,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  MatchState,
+  CardSnapshot,
+  PlayerSetup,
+  DeployCommand,
+  AdvanceMatchResult,
+  MatchResult,
+} from '../game/engine/engine';
+import {
   createMatchState,
   toMatchView,
-  type CardSnapshot,
-  type DeployCommand,
-  type GameSide,
-  type MatchState,
+  advanceMatch,
 } from '../game/engine/engine.js';
-
-const MAX_PENDING_DEPLOYS_PER_PLAYER = 3;
-
-interface ActiveMatch {
-  state: MatchState;
-  playerSockets: Map<string, string>;
-  pendingCommands: DeployCommand[];
-  timer: ReturnType<typeof setInterval>;
-  finishing: boolean;
-  persistingResult: boolean;
-  finishAttempts: number;
-  finishRetryTimer?: ReturnType<typeof setTimeout>;
-}
+import { DEFAULT_GAME_RULES } from '../game/balance.js';
+import { DbService } from '../prisma/db.js';
 
 @Injectable()
-export class GameplayService implements OnModuleDestroy {
-  private readonly logger = new Logger(GameplayService.name);
-  private readonly matches = new Map<string, ActiveMatch>();
-  private readonly matchByPlayer = new Map<string, string>();
-  private server?: Namespace;
+export class GameplayService {
+  private readonly matchStates: Map<string, MatchState> = new Map();
+  constructor(private readonly dbService: DbService) {}
 
-  constructor(
-    private readonly db: DbService,
-    private readonly activePlayers: ActivePlayers,
-  ) {}
-
-  setNamespace(server: Namespace): void {
-    this.server = server;
-  }
-
-  async startMatch(
-    matchId: string,
-    leftPlayerId: string,
-    rightPlayerId: string,
-  ): Promise<void> {
-    const [left, right] = await Promise.all([
-      this.loadPlayerSetup(leftPlayerId),
-      this.loadPlayerSetup(rightPlayerId),
+  async startMatch(matchId: string, player1Id: string, player2Id: string) {
+    const [player1Cards, player2Cards] = await Promise.all([
+      this.fetchPlayerCards(player1Id),
+      this.fetchPlayerCards(player2Id),
     ]);
-    const state = createMatchState(matchId, left, right, DEFAULT_GAME_RULES);
-    const timer = setInterval(
-      () => this.advance(matchId),
-      1000 / DEFAULT_GAME_RULES.ticksPerSecond,
+
+    const player1CardSnapshots = this.mapPlayerCardsToSnapshots(player1Cards);
+    const player2CardSnapshots = this.mapPlayerCardsToSnapshots(player2Cards);
+    const player1Setup: PlayerSetup = {
+      playerId: player1Id,
+      cards: player1CardSnapshots,
+    };
+    const player2Setup: PlayerSetup = {
+      playerId: player2Id,
+      cards: player2CardSnapshots,
+    };
+    const matchState = createMatchState(
+      matchId,
+      player1Setup,
+      player2Setup,
+      DEFAULT_GAME_RULES,
     );
 
-    this.matches.set(matchId, {
-      state,
-      playerSockets: new Map(),
-      pendingCommands: [],
-      timer,
-      finishing: false,
-      persistingResult: false,
-      finishAttempts: 0,
-    });
-    this.matchByPlayer.set(leftPlayerId, matchId);
-    this.matchByPlayer.set(rightPlayerId, matchId);
+    this.matchStates.set(matchId, matchState);
+    return matchState;
   }
 
-  joinMatch(
-    playerId: string,
+  getMatchViewForPlayer(matchId: string, playerId: string) {
+    const matchState = this.getMatchState(matchId);
+
+    const isParticipant =
+      matchState.players.LEFT.playerId === playerId ||
+      matchState.players.RIGHT.playerId === playerId;
+
+    if (!isParticipant) {
+      throw new ForbiddenException(
+        `Player with ID ${playerId} is not a participant in match ${matchId}`,
+      );
+    }
+    return toMatchView(matchState);
+  }
+
+  advanceMatchTick(
     matchId: string,
-    socketId: string,
-  ):
-    | { matchId: string; side: GameSide; state: ReturnType<typeof toMatchView> }
-    | undefined {
-    const match = this.matches.get(matchId);
-    if (!match || match.state.status !== 'RUNNING') {
-      return undefined;
-    }
-    const side = this.findPlayerSide(match.state, playerId);
-    if (!side || match.playerSockets.has(playerId)) {
-      return undefined;
-    }
-
-    match.playerSockets.set(playerId, socketId);
-    return { matchId, side, state: toMatchView(match.state) };
+    commands: DeployCommand[] = [],
+  ): AdvanceMatchResult {
+    const currentState = this.getMatchState(matchId);
+    const result = advanceMatch(currentState, commands);
+    this.matchStates.set(matchId, result.state);
+    return result;
   }
 
-  queueDeployment(
-    playerId: string,
-    socketId: string,
-    deployment: Omit<DeployCommand, 'playerId'>,
-  ): 'QUEUED' | 'NOT_IN_MATCH' | 'RATE_LIMITED' {
-    const matchId = this.matchByPlayer.get(playerId);
-    const match = matchId ? this.matches.get(matchId) : undefined;
-    if (
-      !match ||
-      match.state.status !== 'RUNNING' ||
-      match.playerSockets.get(playerId) !== socketId
-    ) {
-      return 'NOT_IN_MATCH';
+  private getMatchState(matchId: string): MatchState {
+    const matchState = this.matchStates.get(matchId);
+
+    if (!matchState) {
+      throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
-    const pendingForPlayer = match.pendingCommands.filter(
-      (command) => command.playerId === playerId,
-    ).length;
-    if (pendingForPlayer >= MAX_PENDING_DEPLOYS_PER_PLAYER) {
-      return 'RATE_LIMITED';
-    }
-
-    match.pendingCommands.push({ ...deployment, playerId });
-    return 'QUEUED';
+    return matchState;
   }
 
-  onModuleDestroy(): void {
-    for (const match of this.matches.values()) {
-      clearInterval(match.timer);
-      if (match.finishRetryTimer) {
-        clearTimeout(match.finishRetryTimer);
-      }
-    }
-  }
-
-  private async loadPlayerSetup(playerId: string) {
-    const player = await this.db.player.findUnique({
+  private async fetchPlayerCards(playerId: string) {
+    const player = await this.dbService.player.findUnique({
       where: { id: playerId },
       select: {
-        id: true,
         playerCards: {
-          orderBy: { card: { name: 'asc' } },
           select: {
+            cardId: true,
             level: true,
             card: {
               select: {
@@ -151,167 +110,106 @@ export class GameplayService implements OnModuleDestroy {
         },
       },
     });
+
     if (!player) {
-      throw new Error(
-        `Player ${playerId} was not found when starting the match.`,
-      );
+      throw new NotFoundException(`Player with ID ${playerId} not found`);
     }
 
-    const cards: CardSnapshot[] = player.playerCards.map(({ level, card }) => ({
-      cardId: card.id,
-      name: card.name,
-      level,
-      cost: card.cost,
-      hp: card.baseHp,
-      damage: card.baseDamage,
-      attackSpeed: card.attackSpeed,
-      movementSpeed: card.movementSpeed,
-      range: card.range,
-    }));
-    return { playerId: player.id, cards };
+    return player.playerCards;
   }
 
-  private advance(matchId: string): void {
-    const match = this.matches.get(matchId);
-    if (!match || match.state.status !== 'RUNNING') {
-      return;
-    }
+  private mapPlayerCardsToSnapshots(
+    playerCards: Awaited<ReturnType<typeof this.fetchPlayerCards>>,
+  ): CardSnapshot[] {
+    return playerCards.map((playerCard) => {
+      const card = playerCard.card;
 
-    try {
-      const commands = match.pendingCommands.splice(0);
-      const result = advanceMatch(match.state, commands);
-      match.state = result.state;
-      this.server
-        ?.to(this.room(matchId))
-        .emit('game_state', toMatchView(match.state));
-      result.deployResults.forEach((deployResult) => {
-        this.server?.to(this.room(matchId)).emit('deploy_result', deployResult);
-      });
-
-      if (match.state.status === 'FINISHED' && !match.finishing) {
-        match.finishing = true;
-        clearInterval(match.timer);
-        void this.finishMatch(matchId, match);
-      }
-    } catch (error) {
-      clearInterval(match.timer);
-      this.logger.error(
-        `Stopped match ${matchId} after a game tick failed.`,
-        error instanceof Error ? error.stack : String(error),
-      );
-      this.server?.to(this.room(matchId)).emit('game_error', {
-        message: 'The server could not advance this match.',
-      });
-    }
+      return {
+        cardId: playerCard.cardId,
+        level: playerCard.level,
+        name: card.name,
+        cost: card.cost,
+        hp: card.baseHp,
+        damage: card.baseDamage,
+        attackSpeed: card.attackSpeed,
+        movementSpeed: card.movementSpeed,
+        range: card.range,
+      };
+    });
   }
 
-  private async finishMatch(
+  async persistMatchResult(
     matchId: string,
-    match: ActiveMatch,
+    result: MatchResult,
   ): Promise<void> {
-    if (match.persistingResult) {
-      return;
+    if (result.reason === 'CANCELLED' || result.winner === null) {
+      throw new Error('Cancelled matches cannot be saved as finished matches.');
     }
-    match.persistingResult = true;
 
-    try {
-      const result = match.state.result;
-      if (!result) {
-        throw new Error(`Finished match ${matchId} has no result.`);
-      }
+    const matchState = this.getMatchState(matchId);
 
-      const winnerId =
-        result.winner === GAME_SIDE.LEFT
-          ? match.state.players.LEFT.playerId
-          : result.winner === GAME_SIDE.RIGHT
-            ? match.state.players.RIGHT.playerId
-            : undefined;
+    if (matchState.status !== 'FINISHED' || !matchState.result) {
+      throw new Error(`Match ${matchId} has not finished.`);
+    }
 
-      await this.db.$transaction(async (transaction) => {
-        const existingMatch = await transaction.match.findUnique({
-          where: { id: matchId },
-          select: { status: true },
-        });
-        if (!existingMatch) {
-          throw new Error(`Match ${matchId} no longer exists.`);
-        }
-        if (existingMatch.status === 'FINISHED') {
-          return;
-        }
+    const winnerId =
+      result.winner === 'DRAW'
+        ? null
+        : matchState.players[result.winner].playerId;
+    const loserId =
+      result.winner === 'DRAW'
+        ? null
+        : matchState.players[result.winner === 'LEFT' ? 'RIGHT' : 'LEFT']
+            .playerId;
 
-        await transaction.match.update({
-          where: { id: matchId },
-          data: {
-            status: 'FINISHED',
-            endedAt: new Date(),
-          },
-        });
-
-        if (winnerId) {
-          await transaction.matchPlayer.update({
-            where: { matchId_playerId: { matchId, playerId: winnerId } },
-            data: { isWinner: true },
-          });
-          await transaction.player.update({
-            where: { id: winnerId },
-            data: { wins: { increment: 1 } },
-          });
-
-          const loserId =
-            winnerId === match.state.players.LEFT.playerId
-              ? match.state.players.RIGHT.playerId
-              : match.state.players.LEFT.playerId;
-          await transaction.player.update({
-            where: { id: loserId },
-            data: { losses: { increment: 1 } },
-          });
-        }
+    await this.dbService.$transaction(async (transaction) => {
+      const match = await transaction.match.findUnique({
+        where: { id: matchId },
+        select: { status: true },
       });
 
-      this.server
-        ?.to(this.room(matchId))
-        .emit('match_finished', { matchId, result });
-      if (match.finishRetryTimer) {
-        clearTimeout(match.finishRetryTimer);
+      if (!match) {
+        throw new NotFoundException(`Match with ID ${matchId} not found`);
       }
-      this.activePlayers.removePlayer(match.state.players.LEFT.playerId);
-      this.activePlayers.removePlayer(match.state.players.RIGHT.playerId);
-      this.matchByPlayer.delete(match.state.players.LEFT.playerId);
-      this.matchByPlayer.delete(match.state.players.RIGHT.playerId);
-      this.matches.delete(matchId);
-    } catch (error) {
-      this.logger.error(
-        `Could not persist finished match ${matchId}.`,
-        error instanceof Error ? error.stack : String(error),
-      );
-      this.server?.to(this.room(matchId)).emit('game_error', {
-        message: 'The match ended, but its result could not be saved.',
+
+      if (match.status !== 'PLAYING') {
+        return;
+      }
+
+      const updatedMatch = await transaction.match.updateMany({
+        where: { id: matchId, status: 'PLAYING' },
+        data: { status: 'FINISHED', endedAt: new Date() },
       });
-      match.finishAttempts += 1;
-      const retryDelay = Math.min(1000 * 2 ** match.finishAttempts, 30_000);
-      match.finishRetryTimer = setTimeout(() => {
-        match.finishRetryTimer = undefined;
-        void this.finishMatch(matchId, match);
-      }, retryDelay);
-    } finally {
-      match.persistingResult = false;
-    }
-  }
 
-  private findPlayerSide(
-    state: MatchState,
-    playerId: string,
-  ): GameSide | undefined {
-    if (state.players.LEFT.playerId === playerId) {
-      return GAME_SIDE.LEFT;
-    }
-    if (state.players.RIGHT.playerId === playerId) {
-      return GAME_SIDE.RIGHT;
-    }
-    return undefined;
-  }
+      if (updatedMatch.count === 0) {
+        return;
+      }
 
-  private room(matchId: string): string {
-    return `match:${matchId}`;
+      const updatedPlayers = await transaction.matchPlayer.updateMany({
+        where: { matchId },
+        data: { isWinner: false },
+      });
+
+      if (updatedPlayers.count !== 2) {
+        throw new Error(`Match ${matchId} must have exactly two players.`);
+      }
+
+      if (winnerId && loserId) {
+        await transaction.matchPlayer.update({
+          where: { matchId_playerId: { matchId, playerId: winnerId } },
+          data: { isWinner: true },
+        });
+
+        await transaction.player.update({
+          where: { id: winnerId },
+          data: { wins: { increment: 1 } },
+        });
+
+        await transaction.player.update({
+          where: { id: loserId },
+          data: { losses: { increment: 1 } },
+        });
+      }
+    });
   }
 }

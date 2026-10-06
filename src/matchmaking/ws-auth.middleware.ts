@@ -5,9 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 export function createWsAuthMiddleware(jwtService: JwtService) {
   return async (socket: Socket, next: (err?: Error) => void) => {
     try {
-      // 1. Check socket.handshake.auth.token
-      // 2. Check custom header (e.g. key: 'token' or key: 'authorization' in Postman)
-      // 3. Check query param (e.g. ?token=...)
+      
       const headers = socket.handshake.headers;
 
       const headerToken =
