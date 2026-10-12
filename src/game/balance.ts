@@ -12,6 +12,9 @@ export const DEFAULT_GAME_RULES: GameRules = {
     attackSpeed: 1,
     range: 14,
   },
+  laneHalfWidth: 8, // deploy band is y = 42..58
+  unitSeparation: 1.5, // keep below the smallest card range (2)
+  requestLedgerRetentionTicks: 100, // 10 seconds of replay protection
 };
 
 export const STARTER_CARDS: CardSnapshot[] = [

@@ -9,6 +9,7 @@ export const MAP_SIZE = 100;
 export const STARTER_DECK_SIZE = 4;
 
 const POSITION_EPSILON = 1e-9;
+const SEPARATION_PASSES = 3;
 
 export interface CardSnapshot {
   cardId: string;
@@ -36,6 +37,12 @@ export interface GameRules {
   energyRegenHundredthsPerTick: number;
   baseHp: number;
   baseTurret: TurretStats;
+  /** Deploy band is y = 50 +/- laneHalfWidth. */
+  laneHalfWidth: number;
+  /** Minimum distance between any two units; keep below the smallest card range. */
+  unitSeparation: number;
+  /** How many ticks a request ID is remembered for replay protection. */
+  requestLedgerRetentionTicks: number;
 }
 
 export interface PlayerSetup {
@@ -98,6 +105,7 @@ type StoredDeployResult =
   | { status: 'REJECTED'; reason: DeployRejectionReason };
 
 interface RequestLedgerEntry {
+  tick: number;
   command: Omit<DeployCommand, 'requestId'>;
   result: StoredDeployResult;
 }
@@ -235,8 +243,10 @@ export function advanceMatch(
   moveUnits(next);
   resolveAttacks(next);
   removeDefeatedUnits(next);
+  separateUnits(next);
 
   next.tick += 1;
+  pruneRequestLedger(next);
   finishIfRequired(next);
 
   return { state: next, deployResults };
@@ -317,6 +327,16 @@ function validateRules(rules: GameRules): void {
   validateDamage(rules.baseTurret.damage, 'baseTurret.damage');
   validateAttackSpeed(rules.baseTurret.attackSpeed, rules.ticksPerSecond);
   validateRange(rules.baseTurret.range, 'baseTurret.range');
+
+  requireNonNegativeFinite(rules.laneHalfWidth, 'laneHalfWidth');
+  if (rules.laneHalfWidth > MAP_SIZE / 2) {
+    throw new Error('laneHalfWidth cannot exceed half the map size');
+  }
+  requireNonNegativeFinite(rules.unitSeparation, 'unitSeparation');
+  requirePositiveInteger(
+    rules.requestLedgerRetentionTicks,
+    'requestLedgerRetentionTicks',
+  );
 }
 
 function validateDeck(cards: CardSnapshot[], rules: GameRules): void {
@@ -441,11 +461,14 @@ function processDeployCommand(
     command.x <= MAP_SIZE &&
     command.y >= 0 &&
     command.y <= MAP_SIZE;
+  // Strict comparison: nobody may deploy exactly on the river line (x = 50).
   const inOwnHalf =
     side === GAME_SIDE.LEFT
-      ? command.x <= MAP_SIZE / 2
-      : command.x >= MAP_SIZE / 2;
-  if (!inBounds || !inOwnHalf) {
+      ? command.x < MAP_SIZE / 2
+      : command.x > MAP_SIZE / 2;
+  const inLane =
+    Math.abs(command.y - MAP_SIZE / 2) <= state.rules.laneHalfWidth;
+  if (!inBounds || !inOwnHalf || !inLane) {
     return recordRejected(
       state,
       command,
@@ -475,7 +498,11 @@ function processDeployCommand(
     attackProgress: 0,
   });
   state.nextSpawnSequence += 1;
-  state.requestLedger.set(command.requestId, { command: payload, result });
+  state.requestLedger.set(command.requestId, {
+    tick: state.tick,
+    command: payload,
+    result,
+  });
 
   return { requestId: command.requestId, ...result, replayed: false };
 }
@@ -487,7 +514,11 @@ function recordRejected(
   reason: DeployRejectionReason,
 ): DeployResult {
   const result: StoredDeployResult = { status: 'REJECTED', reason };
-  state.requestLedger.set(command.requestId, { command: payload, result });
+  state.requestLedger.set(command.requestId, {
+    tick: state.tick,
+    command: payload,
+    result,
+  });
   return { requestId: command.requestId, ...result, replayed: false };
 }
 
@@ -824,6 +855,55 @@ function removeDefeatedUnits(state: MatchState): void {
   state.units = state.units.filter((unit) => unit.hp > 0);
 }
 
+/**
+ * Pushes overlapping units apart so they never share one point.
+ * Deterministic: units are processed in spawn order, and exact overlaps
+ * split along the y axis.
+ */
+function separateUnits(state: MatchState): void {
+  const minDistance = state.rules.unitSeparation;
+  if (minDistance <= 0 || state.units.length < 2) {
+    return;
+  }
+
+  for (let pass = 0; pass < SEPARATION_PASSES; pass += 1) {
+    for (let i = 0; i < state.units.length; i += 1) {
+      for (let j = i + 1; j < state.units.length; j += 1) {
+        const a = state.units[i]!;
+        const b = state.units[j]!;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const gap = Math.hypot(dx, dy);
+        if (gap >= minDistance) {
+          continue;
+        }
+
+        const nx = gap <= POSITION_EPSILON ? 0 : dx / gap;
+        const ny = gap <= POSITION_EPSILON ? 1 : dy / gap;
+        const push = (minDistance - gap) / 2;
+        a.x -= nx * push;
+        a.y -= ny * push;
+        b.x += nx * push;
+        b.y += ny * push;
+      }
+    }
+  }
+
+  for (const unit of state.units) {
+    unit.x = Math.min(MAP_SIZE, Math.max(0, unit.x));
+    unit.y = Math.min(MAP_SIZE, Math.max(0, unit.y));
+  }
+}
+
+function pruneRequestLedger(state: MatchState): void {
+  const cutoff = state.tick - state.rules.requestLedgerRetentionTicks;
+  for (const [requestId, entry] of state.requestLedger) {
+    if (entry.tick < cutoff) {
+      state.requestLedger.delete(requestId);
+    }
+  }
+}
+
 function finishIfRequired(state: MatchState): void {
   const leftDestroyed = state.players.LEFT.baseHp <= 0;
   const rightDestroyed = state.players.RIGHT.baseHp <= 0;
@@ -913,6 +993,7 @@ function cloneMatchState(state: MatchState): MatchState {
       [...state.requestLedger.entries()].map(([requestId, entry]) => [
         requestId,
         {
+          tick: entry.tick,
           command: { ...entry.command },
           result: { ...entry.result },
         },
