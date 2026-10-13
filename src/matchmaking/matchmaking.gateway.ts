@@ -91,7 +91,7 @@ export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
       try {
         await this.matchmakingService.leaveQueue(playerId);
         console.log(
-          `Player ${playerId} disconnected and removed from Redis queue.`,
+          `Player ${playerId} disconnected from matchmaking; cleaned up any remaining queue entry.`,
         );
       } catch (error) {
         console.error(

@@ -2,7 +2,7 @@
 
 WarLand is a server-authoritative, real-time multiplayer lane-battle prototype. The backend is built with NestJS, Socket.IO, Prisma, PostgreSQL, and Redis. Players can register and log in, enter matchmaking, join a live match, deploy cards, and receive authoritative game updates.
 
-The current playable client is an interactive terminal program. A browser GUI is a future client, not part of this repository yet.
+The project includes a browser login/register and matchmaking lobby, live online matches, a local practice arena, and interactive terminal clients.
 
 > **Project status:** Prototype. Active gameplay state and matchmaking presence are held in process memory. This version is intended for local development and single-server testing, not resilient multi-instance production hosting.
 
@@ -31,8 +31,9 @@ The current playable client is an interactive terminal program. A browser GUI is
 - Server-side Socket.IO gameplay rooms with queued deployments and timed simulation ticks.
 - Database persistence of finished match status, winner flags, and player win/loss counters.
 - A local terminal simulation and an online terminal client.
+- A Vite/TypeScript browser client styled with Tailwind CSS v4, with registration, login, authenticated matchmaking, live online matches, and local practice.
 
-The backend exposes interfaces that a future GUI can use; there is no web frontend in the current project.
+The web client follows a successful matchmaking handoff into the authenticated `/gameplay` namespace, renders authoritative match snapshots, and sends card deployments to the server. Practice remains available as a separate local mode.
 
 ## Architecture at a glance
 
@@ -237,6 +238,14 @@ npm run start:dev
 
 The server listens on port `3000` by default. Set `PORT` to change it.
 
+Start the browser client in another terminal:
+
+```powershell
+npm run dev
+```
+
+Vite proxies `/auth` and Socket.IO to `http://127.0.0.1:3000` by default. Set `VITE_GAME_SERVER_URL` in the frontend environment when the API uses a different URL. For a separately hosted frontend, configure `WARLAND_ALLOWED_ORIGINS` on the API to allow that frontend origin.
+
 ### Create test players
 
 Register two separate accounts through `POST /auth/register`; the online terminal client only logs in and does not create accounts. Registration fields are `username`, `displayName`, and `password`; usernames are 3–30 letters, digits, or underscores, display names are 1–80 characters, and passwords are 8–128 characters.
@@ -336,11 +345,11 @@ The server accepts no more than three queued deployment requests per player per 
 | `JWT_SECRET` | Yes | — | Secret used to sign and verify access tokens. Application startup fails if unset. |
 | `REDIS_URL` | No | `redis://localhost:6379` | Redis connection string for matchmaking. |
 | `PORT` | No | `3000` | HTTP and Socket.IO server port. |
-| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*` | Comma-separated allowed Socket.IO origins. |
+| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*` | Comma-separated allowed browser origins for HTTP CORS and Socket.IO. |
 | `WARLAND_SERVER_URL` | No | `http://localhost:3000` | Default server URL prompted by the online terminal client. |
 | `NO_COLOR` | No | — | Disable ANSI color output in the local terminal demo when set. |
 
-The Socket.IO gateways currently allow all origins when `WARLAND_ALLOWED_ORIGINS` is unset. Configure trusted origins before exposing the server to browsers.
+HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORIGINS` is unset. Configure trusted origins before exposing the server to browsers.
 
 ## Development commands
 

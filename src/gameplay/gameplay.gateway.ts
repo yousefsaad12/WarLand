@@ -74,6 +74,9 @@ export class GameplayGateway implements OnModuleDestroy {
 
       const matchId = payload.matchId.trim();
       const playerId = client.data.playerId;
+      console.info(
+        `Player ${playerId} requested gameplay join for match ${matchId}.`,
+      );
 
       const state = this.gameplayService.getMatchViewForPlayer(
         matchId,
@@ -88,6 +91,7 @@ export class GameplayGateway implements OnModuleDestroy {
         side,
         state,
       });
+      console.info(`Player ${playerId} joined match ${matchId} as ${side}.`);
 
       const roomSockets = await this.server.in(matchId).fetchSockets();
       const joinedPlayersIds = new Set(

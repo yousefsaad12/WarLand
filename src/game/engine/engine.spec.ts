@@ -65,6 +65,9 @@ const rules: GameRules = {
     attackSpeed: 0.1,
     range: 0,
   },
+  laneHalfWidth: 8,
+  unitSeparation: 0,
+  requestLedgerRetentionTicks: 10,
 };
 
 describe('default game balance', () => {

@@ -88,6 +88,21 @@ export class MatchmakingService {
       );
 
       if (match) {
+        const searchingSocket = server.sockets.sockets.get(socketId);
+        const opponentSocket = match.opponentSocketId
+          ? server.sockets.sockets.get(match.opponentSocketId)
+          : undefined;
+
+        if (!searchingSocket?.connected) {
+          return;
+        }
+
+        if (!opponentSocket?.connected) {
+          await this.joinMatchQueue(playerId, playerScore, socketId);
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          continue;
+        }
+
         const opponent = await this.db.player.findUnique({
           where: { id: match.opponentId },
           select: { displayName: true, tag: true },
