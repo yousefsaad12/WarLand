@@ -2,7 +2,7 @@
 
 WarLand is a server-authoritative, real-time multiplayer lane-battle prototype. The backend is built with NestJS, Socket.IO, Prisma, PostgreSQL, and Redis. Players can register and log in, enter matchmaking, join a live match, deploy cards, and receive authoritative game updates.
 
-The project includes a browser login/register and matchmaking lobby, live online matches, a local practice arena, and interactive terminal clients.
+The project includes ranked matchmaking, live online matches, a local practice arena, and interactive terminal clients.
 
 > **Project status:** Prototype. Active gameplay state and matchmaking presence are held in process memory. This version is intended for local development and single-server testing, not resilient multi-instance production hosting.
 
@@ -18,6 +18,11 @@ The project includes a browser login/register and matchmaking lobby, live online
 - [API and Socket.IO contracts](#api-and-socketio-contracts)
 - [Configuration](#configuration)
 - [Development commands](#development-commands)
+- [Load testing](#load-testing)
+  - [How it works](#how-it-works)
+  - [Results](#results)
+  - [Why the 500+ bot runs fail the threshold](#why-the-500-bot-runs-fail-the-threshold)
+  - [Bottleneck analysis](#bottleneck-analysis)
 - [Known limitations and review areas](#known-limitations-and-review-areas)
 - [Repository map](#repository-map)
 
@@ -31,9 +36,8 @@ The project includes a browser login/register and matchmaking lobby, live online
 - Server-side Socket.IO gameplay rooms with queued deployments and timed simulation ticks.
 - Database persistence of finished match status, winner flags, and player win/loss counters.
 - A local terminal simulation and an online terminal client.
-- A Vite/TypeScript browser client styled with Tailwind CSS v4, with registration, login, authenticated matchmaking, live online matches, and local practice.
 
-The web client follows a successful matchmaking handoff into the authenticated `/gameplay` namespace, renders authoritative match snapshots, and sends card deployments to the server. Practice remains available as a separate local mode.
+The HTTP and Socket.IO contracts below are client-agnostic, so a browser or mobile client can be built against the same interfaces later.
 
 ## Architecture at a glance
 
@@ -135,7 +139,7 @@ Default rules are defined in [`src/game/balance.ts`](./src/game/balance.ts):
 | Base health | 1,000 |
 | Maximum deployment requests | 3 per player per tick |
 
-Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds and player deployment half, and available energy. `LEFT` deploys at `x <= 50`; `RIGHT` deploys at `x >= 50`. Both axes are in the inclusive `0..100` range.
+Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds, the player's deployment zone, and available energy. Both axes are in the inclusive `0..100` range. A deployment must be inside the player's own half — `LEFT` at `x < 50` and `RIGHT` at `x > 50`, with the `x = 50` midline off limits — and within the lane band `y = 50 ± laneHalfWidth` (default 42–58).
 
 The online service loads card stats from the database. Card level is included in the in-match snapshot, but currently does **not** scale HP or damage. The local terminal demo uses the hard-coded `STARTER_CARDS` in `balance.ts`.
 
@@ -213,7 +217,7 @@ DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/warland?schema=public"
 REDIS_URL="redis://localhost:6379"
 JWT_SECRET="replace-with-a-long-random-secret"
 PORT=3000
-# Optional. Comma-separated trusted browser origins.
+# Optional. Comma-separated trusted origins for HTTP CORS and Socket.IO.
 WARLAND_ALLOWED_ORIGINS="http://localhost:5173"
 ```
 
@@ -237,14 +241,6 @@ npm run start:dev
 ```
 
 The server listens on port `3000` by default. Set `PORT` to change it.
-
-Start the browser client in another terminal:
-
-```powershell
-npm run dev
-```
-
-Vite proxies `/auth` and Socket.IO to `http://127.0.0.1:3000` by default. Set `VITE_GAME_SERVER_URL` in the frontend environment when the API uses a different URL. For a separately hosted frontend, configure `WARLAND_ALLOWED_ORIGINS` on the API to allow that frontend origin.
 
 ### Create test players
 
@@ -345,11 +341,11 @@ The server accepts no more than three queued deployment requests per player per 
 | `JWT_SECRET` | Yes | — | Secret used to sign and verify access tokens. Application startup fails if unset. |
 | `REDIS_URL` | No | `redis://localhost:6379` | Redis connection string for matchmaking. |
 | `PORT` | No | `3000` | HTTP and Socket.IO server port. |
-| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*` | Comma-separated allowed browser origins for HTTP CORS and Socket.IO. |
+| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*` | Comma-separated allowed origins for HTTP CORS and Socket.IO. |
 | `WARLAND_SERVER_URL` | No | `http://localhost:3000` | Default server URL prompted by the online terminal client. |
 | `NO_COLOR` | No | — | Disable ANSI color output in the local terminal demo when set. |
 
-HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORIGINS` is unset. Configure trusted origins before exposing the server to browsers.
+HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORIGINS` is unset. Configure trusted origins before exposing the server to clients on another host.
 
 ## Development commands
 
@@ -359,13 +355,95 @@ HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORI
 | `npm run build` | Compile the NestJS application. |
 | `npm test` | Run Vitest tests. |
 | `npm run test:e2e` | Run configured end-to-end tests. |
-| `npm run lint` | Run Oxlint on `src/` and `test/`. |
+| `npm run lint` | Run Oxlint on `src/`, `test/`, and `scripts/`. |
+| `npm run loadtest` | Run the Socket.IO load test that plays bot-vs-bot matches to completion. |
 | `npm run game:terminal` | Build and run the local terminal simulation. |
 | `npm run game:terminal:online` | Build and run the online terminal client. |
 | `npx prisma migrate deploy` | Apply committed migrations. |
 | `npx prisma studio` | Open Prisma Studio for local data inspection/editing. |
 
 Current automated game-engine coverage is in [`src/game/engine/engine.spec.ts`](./src/game/engine/engine.spec.ts). Gameplay service, gateway, and matchmaking integration do not yet have dedicated test files.
+
+## Load testing
+
+[`scripts/loadtest.mjs`](./scripts/loadtest.mjs) drives the real HTTP and Socket.IO contracts with bot accounts, matches them through Redis, plays full games, and reports timing and throughput. It is a black-box client: it uses no internal server APIs, so its numbers include network, auth, matchmaking, engine, and broadcast costs exactly as a real client would see them.
+
+```powershell
+# Short smoke test: 4 bots, one wave of matches.
+npm run loadtest -- --bots 4 --ramp-ms 2000 --duration-ms 15000 --grace-ms 240000
+
+# Capacity run: 500 bots (250 concurrent matches).
+npm run loadtest -- --bots 500 --ramp-ms 30000 --duration-ms 180000 --grace-ms 300000
+```
+
+Run the server (`npm run start:dev`) and ensure the four intended card records exist first, because each bot registers through `POST /auth/register` and receives every card. Bots log in when the account already exists, so repeated runs with the same `--seed` reuse accounts instead of creating new ones.
+
+### How it works
+
+- Each bot logs in or registers as `lt<seed>_<index>`, connects to the default namespace, and emits `join_queue`.
+- On `match_found` the bot connects to `/gameplay`, sends `join_game`, and plays until `match_finished`.
+- Deployment strategy: pick a random affordable card and deploy it at the frontline of its own half (`x` around 42–48 for `LEFT`, 52–58 for `RIGHT`), throttled to one attempt per `--think-ms`. Energy in flight is tracked so accepted deploys are never double-spent against the tick budget.
+- Metrics collected: queue wait, match duration and end reason, peak/mean concurrent matches, deploy accept rate and latency, `game_state` tick drift (p50/p95/max) measured against the 100 ms tick, and error counts.
+- A JSON report is written to `--out` (default `loadtest-report.json`) and command-line thresholds decide the exit code. `--no-thresholds` always exits successfully.
+
+| Option | Default | Purpose |
+|---|---:|---|
+| `--url <url>` | `http://localhost:3000` | Server URL. |
+| `--bots <n>` | `40` | Bot accounts, paired into matches. |
+| `--ramp-ms <n>` | `10000` | Stagger bot starts over this window. |
+| `--duration-ms <n>` | `60000` | Keep starting matches this long after the ramp. |
+| `--grace-ms <n>` | `200000` | Wait for in-flight matches after the deadline. |
+| `--think-ms <n>` | `250` | Minimum delay between deploy attempts. |
+| `--seed <n>` | `1` | Bot username seed; reuse accounts across runs. |
+| `--out <file>` | `loadtest-report.json` | JSON report path. |
+| `--min-accept-rate <n>` | `0.9` | Minimum deploy accept rate. |
+| `--max-tick-p95-drift <n>` | `30` | Maximum `game_state` p95 drift in ms. |
+| `--max-error-rate <n>` | `0.05` | Maximum error rate. |
+| `--min-matches <n>` | `0` | Minimum finished matches. |
+
+### Results
+
+All runs below used the default thresholds (`acceptRate ≥ 0.9`, tick p95 drift ≤ 30 ms, error rate ≤ 5%) on a single local server process. Every match in every run ended by `BASE_DESTROYED` — no timeouts, aborts, or unfinished matches.
+
+| Bots | Concurrent matches (peak) | Matches/min | Deploy accept rate | Tick drift p50 / p95 | Errors | Result |
+|---:|---:|---:|---:|---:|---:|:--:|
+| 4 | 4 | 3.7 | 100% | 9 / 15 ms | 0 | PASS |
+| 40 | 40 | 38.6 | 100% | 9 / 15 ms | 0 | PASS |
+| 100 | 100 | 75.5 | 100% | 9 / 15 ms | 0 | PASS |
+| 250 | 250 | 209.2 | 100% | 9 / 17 ms | 0 | PASS |
+| 500 | 500 | 391.1 | 100% | 9 / 36 ms | 0 | FAIL (tick drift) |
+| 1000 | 1000 | 797.3 | 100% | 9 / 34 ms | 0 | FAIL (tick drift) |
+
+Observations:
+
+- **Throughput scales linearly to 1000 bots** (~800 matches/minute, ~72k deploys) with zero errors, zero rejected deploys, and no lost deploys.
+- **Matchmaking stays fast under load:** queue wait p95 stayed under 300 ms even at 1000 bots.
+- **The clean zone is up to ~250 concurrent matches** (drift p95 ~17 ms). The knee is around 250–500 concurrent matches, where drift climbs past the 30 ms threshold.
+- **The median never moves (9 ms); only the tail grows.** That is the signature of event-loop queueing: typical ticks are still on time, but under load an increasing fraction fire late.
+
+### Why the 500+ bot runs fail the threshold
+
+The 500 and 1000 bot runs are not server errors — the failure is the load test's own tick-drift assertion. Tick drift measures the gap between consecutive `game_state` broadcasts against the 100 ms tick rate. At 500 concurrent matches the p95 gap reached 36 ms (threshold 30 ms), even though every deploy was accepted and every match finished correctly.
+
+The cause is the per-match tick timer in [`src/gameplay/gameplay.gateway.ts`](./src/gameplay/gameplay.gateway.ts) (`startMatchTickTimer`, `setInterval` per match). At 500 matches the server runs 5,000 independent timer callbacks per second on a single Node.js event loop. Each callback runs the engine step, serializes the full `MatchView`, and broadcasts `game_state` to the match room. Once the total per-second work approaches the loop's capacity, timers queue behind each other and fire late. The drift threshold detects this graceful degradation and fails the run so the regression is visible instead of silent.
+
+### Bottleneck analysis
+
+The bottleneck is the **single-threaded event loop broadcasting full state per tick**, not RPC, not the database, and not matchmaking.
+
+Per tick, per match, the gateway does:
+
+1. `gameplayService.advanceMatchTick(matchId, commands)` — advance the engine simulation.
+2. `toMatchView(result.state)` — build a fresh client-safe snapshot (allocates new objects/arrays).
+3. `server.to(matchId).emit('game_state', ...)` — JSON-serialize the snapshot and write it to each participant socket.
+
+At 500 concurrent matches at 10 Hz that is ~5,000 full-state serializations and ~10,000 socket writes per second, all on the main thread. Contributing factors:
+
+- **One timer per match.** 500 `setInterval` callbacks per 100 ms window compete on one loop; there is no batching, so late timers push later timers further behind.
+- **Allocation and GC pressure.** Every tick allocates a new view and JSON string, so garbage collection steals event-loop time in bursts. This is why drift is spiky (p50 ~9 ms but max spikes to 265–490 ms) rather than uniformly high.
+- **Match end runs inline in the tick callback.** `persistMatchResultWithRetry` performs Prisma/Postgres round-trips and emits `match_finished` inside the timer callback, so every match completion briefly delays every other match's next tick. At 500 concurrent matches that is roughly 1.5 completions per second.
+
+This is expected for the current single-process in-memory design. If higher concurrency is needed, the natural next steps are: drive all matches from **one shared tick loop** instead of N intervals, **throttle `game_state`** broadcasting below the simulation rate (for example simulate at 10 Hz, broadcast at 5 Hz), and **move result persistence off the tick callback** onto a queue or worker. Beyond a single process, authoritative match state would need to be partitioned across instances.
 
 ## Known limitations and review areas
 
@@ -375,10 +453,10 @@ Current automated game-engine coverage is in [`src/game/engine/engine.spec.ts`](
 - **Card seed data is manual:** there is no checked-in seed script. Card definitions must exist before account registration, and every new account receives all available cards.
 - **Deck rules are strict:** each player must have exactly four cards, and both players must have matching card IDs.
 - **Card upgrades are not applied:** card level is stored and passed into snapshots, but card stats currently use the database base values at every level.
-- **Browser UI is not implemented:** the online terminal demonstrates the protocol; a browser client can consume the same HTTP and Socket.IO interfaces.
+- **No browser or mobile client ships with this repository:** only the backend and the terminal clients are included. The documented HTTP and Socket.IO contracts are client-agnostic, so a web client can be added later against the same interfaces.
 - **Persistence failure needs operational follow-up:** final result saves are retried three times. If all attempts fail, the timer has stopped and an error is emitted; there is no durable background retry/reconciliation job.
 - **No dedicated gameplay integration tests yet:** build success and manual terminal play do not replace test coverage for matchmaking, disconnects, tick timing, and result persistence.
-- **CORS defaults to permissive for development:** explicitly configure `WARLAND_ALLOWED_ORIGINS` for browser deployments.
+- **CORS defaults to permissive for development:** explicitly configure `WARLAND_ALLOWED_ORIGINS` for client deployments on another host.
 
 ## Repository map
 
@@ -395,6 +473,8 @@ src/
   players/       Player profile, statistics, leaderboard endpoints
   prisma/        Prisma client lifecycle
   redis/         Redis connection and Lua matchmaking command
+scripts/
+  loadtest.mjs   Socket.IO load test that plays bot-vs-bot matches
 prisma/
   schema.prisma  PostgreSQL data model
   migrations/    Database schema migrations
