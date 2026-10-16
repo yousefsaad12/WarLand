@@ -1,0 +1,117 @@
+{
+  "config": {
+    "url": "http://localhost:3000",
+    "bots": 4,
+    "rampMs": 2000,
+    "durationMs": 15000,
+    "graceMs": 240000,
+    "thinkMs": 250,
+    "seed": 1,
+    "regConcurrency": 4,
+    "out": "loadtest-smoke.json",
+    "minAcceptRate": 0.9,
+    "maxTickP95Drift": 30,
+    "maxErrorRate": 0.05,
+    "minMatches": 0,
+    "searchTimeoutMs": 340000,
+    "gameStartTimeoutMs": 30000,
+    "matchTimeoutMs": 210000,
+    "thresholds": true
+  },
+  "stopReason": "completed",
+  "startedAt": "2026-10-16T16:31:05.342Z",
+  "elapsedMs": 64330,
+  "accounts": {
+    "created": 4,
+    "reused": 0,
+    "failed": 0
+  },
+  "queue": {
+    "waitMs": {
+      "count": 4,
+      "p50": 284,
+      "p95": 767,
+      "max": 767,
+      "mean": 473.3
+    }
+  },
+  "matches": {
+    "found": 4,
+    "joined": 4,
+    "finished": 4,
+    "unfinished": 0,
+    "byReason": {
+      "BASE_DESTROYED": 4
+    },
+    "durationMs": {
+      "count": 4,
+      "p50": 52251,
+      "p95": 62536,
+      "max": 62536,
+      "mean": 57393.5
+    },
+    "finishedPerMinute": 3.73,
+    "concurrentPeak": 4,
+    "concurrentAvg": 3.62
+  },
+  "deploys": {
+    "sent": 59,
+    "accepted": 118,
+    "rejected": 0,
+    "lost": 0,
+    "acceptRate": 1,
+    "rejectReasons": {},
+    "latencyMs": {
+      "count": 59,
+      "p50": 109,
+      "p95": 137,
+      "max": 138,
+      "mean": 111.3
+    }
+  },
+  "ticks": {
+    "driftMs": {
+      "count": 2060,
+      "p50": 9,
+      "p95": 15,
+      "max": 127,
+      "mean": 10.3
+    }
+  },
+  "errors": {
+    "total": 0,
+    "rate": 0,
+    "byType": {},
+    "last": []
+  },
+  "thresholds": {
+    "enabled": true,
+    "checks": [
+      {
+        "name": "min_accept_rate",
+        "value": 1,
+        "limit": 0.9,
+        "pass": true
+      },
+      {
+        "name": "max_tick_p95_drift_ms",
+        "value": 15,
+        "limit": 30,
+        "pass": true
+      },
+      {
+        "name": "max_error_rate",
+        "value": 0,
+        "limit": 0.05,
+        "pass": true
+      },
+      {
+        "name": "min_finished_matches",
+        "value": 4,
+        "limit": 0,
+        "pass": true
+      }
+    ]
+  },
+  "passed": true
+}

@@ -1,0 +1,117 @@
+{
+  "config": {
+    "url": "http://localhost:3000",
+    "bots": 100,
+    "rampMs": 15000,
+    "durationMs": 90000,
+    "graceMs": 240000,
+    "thinkMs": 250,
+    "seed": 2,
+    "regConcurrency": 4,
+    "out": "loadtest-report-100.json",
+    "minAcceptRate": 0.9,
+    "maxTickP95Drift": 30,
+    "maxErrorRate": 0.05,
+    "minMatches": 0,
+    "searchTimeoutMs": 340000,
+    "gameStartTimeoutMs": 30000,
+    "matchTimeoutMs": 210000,
+    "thresholds": true
+  },
+  "stopReason": "completed",
+  "startedAt": "2026-10-16T16:36:54.924Z",
+  "elapsedMs": 190694,
+  "accounts": {
+    "created": 100,
+    "reused": 0,
+    "failed": 0
+  },
+  "queue": {
+    "waitMs": {
+      "count": 240,
+      "p50": 178,
+      "p95": 339,
+      "max": 421,
+      "mean": 212.3
+    }
+  },
+  "matches": {
+    "found": 240,
+    "joined": 240,
+    "finished": 240,
+    "unfinished": 0,
+    "byReason": {
+      "BASE_DESTROYED": 240
+    },
+    "durationMs": {
+      "count": 240,
+      "p50": 48164,
+      "p95": 75793,
+      "max": 130249,
+      "mean": 52865.1
+    },
+    "finishedPerMinute": 75.51,
+    "concurrentPeak": 100,
+    "concurrentAvg": 66.74
+  },
+  "deploys": {
+    "sent": 3186,
+    "accepted": 3186,
+    "rejected": 0,
+    "lost": 0,
+    "acceptRate": 1,
+    "rejectReasons": {},
+    "latencyMs": {
+      "count": 3186,
+      "p50": 109,
+      "p95": 115,
+      "max": 240,
+      "mean": 109.6
+    }
+  },
+  "ticks": {
+    "driftMs": {
+      "count": 115242,
+      "p50": 9,
+      "p95": 15,
+      "max": 149,
+      "mean": 9.6
+    }
+  },
+  "errors": {
+    "total": 0,
+    "rate": 0,
+    "byType": {},
+    "last": []
+  },
+  "thresholds": {
+    "enabled": true,
+    "checks": [
+      {
+        "name": "min_accept_rate",
+        "value": 1,
+        "limit": 0.9,
+        "pass": true
+      },
+      {
+        "name": "max_tick_p95_drift_ms",
+        "value": 15,
+        "limit": 30,
+        "pass": true
+      },
+      {
+        "name": "max_error_rate",
+        "value": 0,
+        "limit": 0.05,
+        "pass": true
+      },
+      {
+        "name": "min_finished_matches",
+        "value": 240,
+        "limit": 0,
+        "pass": true
+      }
+    ]
+  },
+  "passed": true
+}
