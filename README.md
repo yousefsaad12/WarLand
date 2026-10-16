@@ -94,9 +94,9 @@ sequenceDiagram
     M-->>C1: match_found
     M-->>C2: match_found
 
-    C1->>G: Connect /gameplay with JWT; join_game
+    C1->>G: Connect /gameplay (JWT + join_game)
     G-->>C1: game_started with authorized MatchView
-    C2->>G: Connect /gameplay with JWT; join_game
+    C2->>G: Connect /gameplay (JWT + join_game)
     G-->>C2: game_started with authorized MatchView
     Note over G: Start a timer after both participants join
 
@@ -123,7 +123,7 @@ sequenceDiagram
 5. The gateway verifies that the authenticated player belongs to the requested match, joins the Socket.IO room, and sends `game_started`.
 6. After both participants are in the room, one timer advances the match at the configured tick rate.
 7. Deployment events are queued until a tick. The game engine validates and processes those commands, then the gateway broadcasts `game_state` and `deploy_result`.
-8. On completion, the gateway persists the result, releases both players from the active-player store, stops the timer, and emits `match_finished`.
+8. On completion, the gateway stops the timer, persists the result, releases both players from the active-player store, and emits `match_finished`.
 
 ## Gameplay and balance
 
