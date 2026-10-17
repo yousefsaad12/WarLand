@@ -551,8 +551,8 @@ function createMetrics() {
 }
 
 function buildReport(stopReason) {
-  const finishedResults = metrics.deploysAccepted + metrics.deploysRejected;
-  const acceptRate = finishedResults > 0 ? metrics.deploysAccepted / finishedResults : 1;
+  const acceptRate =
+    metrics.deploysSent > 0 ? metrics.deploysAccepted / metrics.deploysSent : 1;
   const operations = metrics.matchesFound + metrics.deploysSent + config.bots;
   const errorRate = metrics.errorTotal / Math.max(1, operations);
   const tickStats = summarize(metrics.tickDriftMs);
@@ -632,7 +632,7 @@ function printProgress() {
   const elapsed = Math.round((Date.now() - testStartTime) / 1000);
   const settled = bots.filter((bot) => bot.settled).length;
   const drift = summarize(metrics.tickDriftMs);
-  const resolved = metrics.deploysAccepted + metrics.deploysRejected;
+  const resolved = metrics.deploysSent;
   const accept = resolved > 0 ? Math.round((metrics.deploysAccepted / resolved) * 100) : 100;
   console.log(
     `[${elapsed}s] active=${activeMatches} settled=${settled}/${bots.length} ` +

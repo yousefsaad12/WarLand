@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import type {
   MatchState,
@@ -18,11 +19,33 @@ import {
 } from '../game/engine/engine.js';
 import { DEFAULT_GAME_RULES } from '../game/balance.js';
 import { DbService } from '../prisma/db.js';
+import { ActivePlayers } from '../matchmaking/active-players.store.js';
+
+const JOIN_DEADLINE_MS = 30_000;
+const ELO_K_FACTOR = 32;
 
 @Injectable()
-export class GameplayService {
+export class GameplayService implements OnModuleDestroy {
   private readonly matchStates: Map<string, MatchState> = new Map();
-  constructor(private readonly dbService: DbService) {}
+  private readonly joinedMatches: Set<string> = new Set();
+  private readonly joinDeadlines: Map<
+    string,
+    ReturnType<typeof setTimeout>
+  > = new Map();
+
+  constructor(
+    private readonly dbService: DbService,
+    private readonly activePlayers: ActivePlayers,
+  ) {}
+
+  onModuleDestroy() {
+    for (const timer of this.joinDeadlines.values()) {
+      clearTimeout(timer);
+    }
+    this.joinDeadlines.clear();
+    this.joinedMatches.clear();
+    this.matchStates.clear();
+  }
 
   async startMatch(matchId: string, player1Id: string, player2Id: string) {
     const [player1Cards, player2Cards] = await Promise.all([
@@ -48,6 +71,7 @@ export class GameplayService {
     );
 
     this.matchStates.set(matchId, matchState);
+    this.scheduleJoinDeadline(matchId);
     return matchState;
   }
 
@@ -84,6 +108,98 @@ export class GameplayService {
     }
 
     return matchState;
+  }
+
+  isMatchRunning(matchId: string): boolean {
+    return this.matchStates.get(matchId)?.status === 'RUNNING';
+  }
+
+  /**
+   * Marks a match as actually started (both participants joined the room), so
+   * the join deadline scheduled by startMatch is cancelled.
+   */
+  markMatchJoined(matchId: string): void {
+    this.joinedMatches.add(matchId);
+    this.clearJoinDeadline(matchId);
+  }
+
+  /**
+   * Releases all in-memory resources for a match and removes both players from
+   * the active-player store. Idempotent: safe to call on every exit path.
+   */
+  disposeMatch(matchId: string, state?: MatchState): MatchState | undefined {
+    const matchState = state ?? this.matchStates.get(matchId);
+
+    if (matchState) {
+      this.activePlayers.removePlayer(matchState.players.LEFT.playerId);
+      this.activePlayers.removePlayer(matchState.players.RIGHT.playerId);
+    }
+
+    this.clearJoinDeadline(matchId);
+    this.joinedMatches.delete(matchId);
+    this.matchStates.delete(matchId);
+
+    return matchState;
+  }
+
+  private scheduleJoinDeadline(matchId: string): void {
+    this.clearJoinDeadline(matchId);
+
+    const timer = setTimeout(() => {
+      this.joinDeadlines.delete(matchId);
+
+      const state = this.matchStates.get(matchId);
+      if (
+        !state ||
+        state.status !== 'RUNNING' ||
+        this.joinedMatches.has(matchId)
+      ) {
+        return;
+      }
+
+      void this.abandonMatch(matchId);
+    }, JOIN_DEADLINE_MS);
+
+    timer.unref?.();
+    this.joinDeadlines.set(matchId, timer);
+  }
+
+  private clearJoinDeadline(matchId: string): void {
+    const timer = this.joinDeadlines.get(matchId);
+    if (timer) {
+      clearTimeout(timer);
+      this.joinDeadlines.delete(matchId);
+    }
+  }
+
+  private async abandonMatch(matchId: string): Promise<void> {
+    try {
+      await this.dbService.match.updateMany({
+        where: { id: matchId, status: 'PLAYING' },
+        data: { status: 'FINISHED', endedAt: new Date() },
+      });
+    } catch (error) {
+      console.error(
+        `Failed to mark abandoned match ${matchId} as finished:`,
+        error,
+      );
+    } finally {
+      this.disposeMatch(matchId);
+    }
+  }
+
+  private computeEloRatings(
+    winnerRating: number,
+    loserRating: number,
+  ): [number, number] {
+    const expectedWinner =
+      1 / (1 + 10 ** ((loserRating - winnerRating) / 400));
+    const expectedLoser = 1 - expectedWinner;
+
+    return [
+      Math.round(winnerRating + ELO_K_FACTOR * (1 - expectedWinner)),
+      Math.round(loserRating + ELO_K_FACTOR * (0 - expectedLoser)),
+    ];
   }
 
   private async fetchPlayerCards(playerId: string) {
@@ -200,15 +316,33 @@ export class GameplayService {
           data: { isWinner: true },
         });
 
-        await transaction.player.update({
-          where: { id: winnerId },
-          data: { wins: { increment: 1 } },
-        });
+        const [winner, loser] = await Promise.all([
+          transaction.player.findUnique({
+            where: { id: winnerId },
+            select: { rating: true },
+          }),
+          transaction.player.findUnique({
+            where: { id: loserId },
+            select: { rating: true },
+          }),
+        ]);
 
-        await transaction.player.update({
-          where: { id: loserId },
-          data: { losses: { increment: 1 } },
-        });
+        if (winner && loser) {
+          const [winnerRating, loserRating] = this.computeEloRatings(
+            winner.rating,
+            loser.rating,
+          );
+
+          await transaction.player.update({
+            where: { id: winnerId },
+            data: { wins: { increment: 1 }, rating: winnerRating },
+          });
+
+          await transaction.player.update({
+            where: { id: loserId },
+            data: { losses: { increment: 1 }, rating: loserRating },
+          });
+        }
       }
     });
   }

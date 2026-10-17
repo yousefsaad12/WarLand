@@ -7,6 +7,7 @@ import { getWebSocketCorsOrigin } from './auth/ws-cors.options.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: getWebSocketCorsOrigin() });
+  app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

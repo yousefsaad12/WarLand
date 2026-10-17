@@ -362,7 +362,7 @@ HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORI
 | `npx prisma migrate deploy` | Apply committed migrations. |
 | `npx prisma studio` | Open Prisma Studio for local data inspection/editing. |
 
-Current automated game-engine coverage is in [`src/game/engine/engine.spec.ts`](./src/game/engine/engine.spec.ts). Gameplay service, gateway, and matchmaking integration do not yet have dedicated test files.
+Automated coverage lives in [`src/game/engine/engine.spec.ts`](./src/game/engine/engine.spec.ts) (engine rules and determinism), [`src/gameplay/gameplay.service.spec.ts`](./src/gameplay/gameplay.service.spec.ts) (match lifecycle, join deadline, Elo persistence), and [`src/gameplay/gameplay.gateway.spec.ts`](./src/gameplay/gameplay.gateway.spec.ts) (socket handling and tick-timer cleanup). `npm run test:e2e` runs the full-match simulation in [`test/game-engine.e2e-spec.ts`](./test/game-engine.e2e-spec.ts).
 
 ## Load testing
 

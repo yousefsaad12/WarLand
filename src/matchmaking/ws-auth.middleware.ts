@@ -26,7 +26,7 @@ export function createWsAuthMiddleware(jwtService: JwtService) {
       const payload = await jwtService.verifyAsync(token);
       socket.data.playerId = payload.sub;
       next();
-    } catch (err) {
+    } catch {
       next(new Error('Unauthorized'));
     }
   };

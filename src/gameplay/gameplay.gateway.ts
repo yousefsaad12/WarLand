@@ -10,7 +10,6 @@ import { Server, Socket } from 'socket.io';
 import { GameplayService } from './gameplay.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { createWsAuthMiddleware } from '../matchmaking/ws-auth.middleware.js';
-import { ActivePlayers } from '../matchmaking/active-players.store.js';
 import {
   toMatchView,
   type DeployCommand,
@@ -37,7 +36,6 @@ export class GameplayGateway implements OnModuleDestroy {
   constructor(
     private readonly gameplayService: GameplayService,
     private readonly jwtService: JwtService,
-    private readonly activePlayers: ActivePlayers,
   ) {}
 
   onModuleDestroy() {
@@ -155,6 +153,14 @@ export class GameplayGateway implements OnModuleDestroy {
 
       const matchId = client.data.matchId;
       const playerId = client.data.playerId;
+
+      if (!this.gameplayService.isMatchRunning(matchId)) {
+        client.emit('game_error', {
+          message: 'This match is no longer running.',
+        });
+        return;
+      }
+
       const commands = this.commandsByMatch.get(matchId) ?? [];
       const command: DeployCommand = {
         requestId: payload.requestId,
@@ -193,6 +199,8 @@ export class GameplayGateway implements OnModuleDestroy {
       return;
     }
 
+    this.gameplayService.markMatchJoined(matchId);
+
     const timer = setInterval(async () => {
       try {
         const commands = this.commandsByMatch.get(matchId) ?? [];
@@ -205,28 +213,33 @@ export class GameplayGateway implements OnModuleDestroy {
         this.commandsByMatch.set(matchId, []);
 
         if (result.state.status !== 'RUNNING') {
-          clearInterval(timer);
-          this.tickTimersByMatch.delete(matchId);
-          this.commandsByMatch.delete(matchId);
-          if (result.state.result) {
-            await this.persistMatchResultWithRetry(
-              matchId,
-              result.state.result,
+          this.stopMatchTickTimer(matchId, timer);
+          try {
+            if (result.state.result) {
+              await this.persistMatchResultWithRetry(
+                matchId,
+                result.state.result,
+              );
+              this.server.to(matchId).emit('match_finished', {
+                result: result.state.result,
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Failed to persist result for match ${matchId}:`,
+              error,
             );
-            this.activePlayers.removePlayer(result.state.players.LEFT.playerId);
-            this.activePlayers.removePlayer(
-              result.state.players.RIGHT.playerId,
-            );
-            this.server.to(matchId).emit('match_finished', {
-              result: result.state.result,
+            this.server.to(matchId).emit('game_error', {
+              message: 'Could not save the match result.',
             });
+          } finally {
+            this.gameplayService.disposeMatch(matchId, result.state);
           }
         }
       } catch (error) {
         console.error(`Failed to advance gameplay match ${matchId}:`, error);
-        clearInterval(timer);
-        this.tickTimersByMatch.delete(matchId);
-        this.commandsByMatch.delete(matchId);
+        this.stopMatchTickTimer(matchId, timer);
+        this.gameplayService.disposeMatch(matchId);
         this.server.to(matchId).emit('game_error', {
           message:
             error instanceof Error
@@ -236,6 +249,15 @@ export class GameplayGateway implements OnModuleDestroy {
       }
     }, TICK_INTERVAL_MS);
     this.tickTimersByMatch.set(matchId, timer);
+  }
+
+  private stopMatchTickTimer(
+    matchId: string,
+    timer: ReturnType<typeof setInterval>,
+  ) {
+    clearInterval(timer);
+    this.tickTimersByMatch.delete(matchId);
+    this.commandsByMatch.delete(matchId);
   }
 
   private async persistMatchResultWithRetry(
