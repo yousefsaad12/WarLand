@@ -30,6 +30,8 @@ function makeView(playerId = 'p1'): MatchView {
     tick: 0,
     maxTicks: 100,
     ticksPerSecond: 10,
+    laneHalfWidth: DEFAULT_GAME_RULES.laneHalfWidth,
+    maxEnergyHundredths: DEFAULT_GAME_RULES.maxEnergyHundredths,
     players: {
       LEFT: { playerId, baseHp: 1000, energyHundredths: 500, cards: [] },
       RIGHT: { playerId: 'p2', baseHp: 1000, energyHundredths: 500, cards: [] },
@@ -42,6 +44,11 @@ type EmittedEvent = { room: string; event: string; payload: unknown };
 
 function createHarness() {
   const emitted: EmittedEvent[] = [];
+  const socketEmits: Array<{
+    playerId: string;
+    event: string;
+    payload: unknown;
+  }> = [];
   const gameplayService = {
     getMatchViewForPlayer: vi.fn(() => makeView()),
     isMatchRunning: vi.fn(() => true),
@@ -52,9 +59,17 @@ function createHarness() {
   };
   const jwtService = {} as JwtService;
 
+  const makeSocket = (playerId: string) => ({
+    data: { playerId } as Record<string, unknown>,
+    emit: (event: string, payload: unknown) =>
+      socketEmits.push({ playerId, event, payload }),
+  });
+
   const server = {
     use: vi.fn(),
-    in: vi.fn(() => ({ fetchSockets: vi.fn(async () => []) })),
+    in: vi.fn(() => ({
+      fetchSockets: vi.fn(async () => [makeSocket('p1'), makeSocket('p2')]),
+    })),
     to: vi.fn((room: string) => ({
       emit: (event: string, payload: unknown) =>
         emitted.push({ room, event, payload }),
@@ -73,7 +88,7 @@ function createHarness() {
     emit: vi.fn(),
   };
 
-  return { gateway, gameplayService, server, client, emitted };
+  return { gateway, gameplayService, server, client, emitted, socketEmits };
 }
 
 function findEmit(
@@ -197,7 +212,7 @@ describe('GameplayGateway.handleJoinGame', () => {
 describe('GameplayGateway tick timer', () => {
   it('starts, marks joined, and disposes the match on finish', async () => {
     vi.useFakeTimers();
-    const { gateway, gameplayService, emitted } = createHarness();
+    const { gateway, gameplayService, socketEmits } = createHarness();
     gameplayService.advanceMatchTick.mockReturnValue({
       state: finishedState(),
       deployResults: [],
@@ -215,7 +230,7 @@ describe('GameplayGateway tick timer', () => {
       expect.objectContaining({ status: 'FINISHED' }),
     );
     expect(
-      emitted.some(({ event }) => event === 'match_finished'),
+      socketEmits.some(({ event }) => event === 'match_finished'),
     ).toBe(true);
 
     gateway.onModuleDestroy();

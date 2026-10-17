@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DbService } from '../prisma/db.js';
+import { CARD_MAX_LEVEL, cardExpToNextLevel } from '../game/balance.js';
 
 @Injectable()
 export class PlayerService {
@@ -91,6 +92,7 @@ export class PlayerService {
       orderBy: { card: { name: 'asc' as const } },
       select: {
         level: true,
+        exp: true,
         card: {
           select: {
             id: true,
@@ -128,6 +130,7 @@ export class PlayerService {
     createdAt: Date;
     playerCards: Array<{
       level: number;
+      exp: number;
       card: {
         id: string;
         name: string;
@@ -150,7 +153,11 @@ export class PlayerService {
       losses: player.losses,
       winRate: this.winRate(player.wins, player.losses),
       createdAt: player.createdAt,
-      deck: player.playerCards,
+      deck: player.playerCards.map((entry) => ({
+        ...entry,
+        expToNext: cardExpToNextLevel(entry.level),
+        maxed: entry.level >= CARD_MAX_LEVEL,
+      })),
     };
   }
 

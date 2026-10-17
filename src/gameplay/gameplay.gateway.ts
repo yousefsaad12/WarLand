@@ -7,13 +7,14 @@ import {
 } from '@nestjs/websockets';
 import { getWebSocketCorsOrigin } from '../auth/ws-cors.options.js';
 import { Server, Socket } from 'socket.io';
-import { GameplayService } from './gameplay.service.js';
+import { GameplayService, type MatchRewards } from './gameplay.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { createWsAuthMiddleware } from '../matchmaking/ws-auth.middleware.js';
 import {
   toMatchView,
   type DeployCommand,
   type MatchResult,
+  type MatchState,
 } from '../game/engine/engine.js';
 import { DEFAULT_GAME_RULES } from '../game/balance.js';
 import { OnModuleDestroy } from '@nestjs/common';
@@ -215,15 +216,14 @@ export class GameplayGateway implements OnModuleDestroy {
         if (result.state.status !== 'RUNNING') {
           this.stopMatchTickTimer(matchId, timer);
           try {
+            let rewards: MatchRewards | null = null;
             if (result.state.result) {
-              await this.persistMatchResultWithRetry(
+              rewards = await this.persistMatchResultWithRetry(
                 matchId,
                 result.state.result,
               );
-              this.server.to(matchId).emit('match_finished', {
-                result: result.state.result,
-              });
             }
+            await this.emitMatchFinished(matchId, result.state, rewards);
           } catch (error) {
             console.error(
               `Failed to persist result for match ${matchId}:`,
@@ -263,13 +263,12 @@ export class GameplayGateway implements OnModuleDestroy {
   private async persistMatchResultWithRetry(
     matchId: string,
     result: MatchResult,
-  ): Promise<void> {
+  ): Promise<MatchRewards | null> {
     let attempts = 0;
 
     while (attempts < MAX_RESULT_SAVE_ATTEMPTS) {
       try {
-        await this.gameplayService.persistMatchResult(matchId, result);
-        return;
+        return await this.gameplayService.persistMatchResult(matchId, result);
       } catch (error) {
         attempts++;
         if (attempts >= MAX_RESULT_SAVE_ATTEMPTS) {
@@ -282,6 +281,36 @@ export class GameplayGateway implements OnModuleDestroy {
         // Wait before retrying
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+    }
+    return null;
+  }
+
+  
+  private async emitMatchFinished(
+    matchId: string,
+    matchState: MatchState,
+    rewards: MatchRewards | null,
+  ): Promise<void> {
+    const result = rewards?.result ?? matchState.result;
+    if (!result) return;
+
+    const leftId = matchState.players.LEFT.playerId;
+    const rightId = matchState.players.RIGHT.playerId;
+    const sockets = await this.server.in(matchId).fetchSockets();
+
+    for (const socket of sockets) {
+      const playerId = socket.data.playerId as string | undefined;
+      const side: 'LEFT' | 'RIGHT' | null =
+        playerId === leftId
+          ? 'LEFT'
+          : playerId === rightId
+            ? 'RIGHT'
+            : null;
+
+      socket.emit('match_finished', {
+        result,
+        rewards: rewards && side ? rewards.players[side] : null,
+      });
     }
   }
 }

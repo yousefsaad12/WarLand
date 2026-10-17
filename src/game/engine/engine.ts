@@ -150,6 +150,9 @@ export interface MatchView {
   tick: number;
   maxTicks: number;
   ticksPerSecond: number;
+  /** Half-width of the deployment band around y = 50 (y = 50 +/- laneHalfWidth). */
+  laneHalfWidth: number;
+  maxEnergyHundredths: number;
   players: Record<
     GameSide,
     {
@@ -270,6 +273,8 @@ export function toMatchView(state: MatchState): MatchView {
     tick: state.tick,
     maxTicks: state.rules.maxTicks,
     ticksPerSecond: state.rules.ticksPerSecond,
+    laneHalfWidth: state.rules.laneHalfWidth,
+    maxEnergyHundredths: state.rules.maxEnergyHundredths,
     players: {
       LEFT: toPlayerView(state.players.LEFT),
       RIGHT: toPlayerView(state.players.RIGHT),
@@ -1007,7 +1012,8 @@ function clonePlayerState(player: PlayerState): PlayerState {
   return {
     ...player,
     cards: player.cards.map((card) => ({
-      snapshot: { ...card.snapshot },
+      snapshot: { ...card
+        .snapshot },
       deployedCount: card.deployedCount,
     })),
   };

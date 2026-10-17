@@ -1,0 +1,155 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Kenney Future';
+  src: url('/assets/fonts/KenneyFuture.ttf') format('truetype');
+  font-display: swap;
+}
+
+@theme {
+  --color-ink-950: #070a10;
+  --color-ink-900: #0b0e14;
+  --color-ink-850: #10151f;
+  --color-ink-800: #151b26;
+  --color-ink-700: #1e2634;
+  --color-line: #26303f;
+  --color-gold: #d8b56a;
+  --color-gold-soft: #8a733f;
+  --color-team-left: #3b82f6;
+  --color-team-right: #ef4444;
+  --font-display: 'Kenney Future', ui-serif, Georgia, 'Times New Roman', serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink-900);
+  color: #e2e8f0;
+  font-family:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  position: relative;
+}
+
+.warland-bg {
+  background:
+    radial-gradient(
+      120% 80% at 50% -20%,
+      rgba(216, 181, 106, 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      80% 60% at 50% 120%,
+      rgba(59, 130, 246, 0.05),
+      transparent 60%
+    ),
+    var(--color-ink-900);
+}
+
+.panel {
+  background: linear-gradient(
+    180deg,
+    rgba(23, 30, 43, 0.92),
+    rgba(16, 21, 31, 0.92)
+  );
+  border: 1px solid var(--color-line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 18px 40px -24px rgba(0, 0, 0, 0.9);
+}
+
+.panel-frame {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(23, 30, 43, 0.94),
+    rgba(15, 20, 29, 0.96)
+  );
+  border: 1px solid var(--color-line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 22px 48px -28px rgba(0, 0, 0, 0.95);
+}
+
+.panel-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 14px solid transparent;
+  border-image: url('/assets/kenney/ui/panel-border.png') 14 stretch;
+  opacity: 0.5;
+  border-radius: inherit;
+}
+
+.btn-kenney {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border: 0;
+}
+
+.btn-img-primary {
+  background-image: url('/assets/kenney/ui/button-primary.png');
+}
+.btn-img-secondary {
+  background-image: url('/assets/kenney/ui/button-secondary.png');
+}
+.btn-img-danger {
+  background-image: url('/assets/kenney/ui/button-danger.png');
+}
+
+.gold-text {
+  color: var(--color-gold);
+}
+
+.hairline {
+  border-color: var(--color-line);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3444;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes warland-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-pulse-soft {
+  animation: warland-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes warland-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: warland-rise 0.24s ease-out both;
+}

@@ -13,6 +13,7 @@ import {
 type PlayerCardsRow = {
   cardId: string;
   level: number;
+  exp: number;
   card: {
     id: string;
     name: string;
@@ -29,6 +30,7 @@ function starterRows(): PlayerCardsRow[] {
   return STARTER_CARDS.map((card) => ({
     cardId: card.cardId,
     level: card.level,
+    exp: 0,
     card: {
       id: card.cardId,
       name: card.name,
@@ -53,7 +55,12 @@ function createDbMock() {
       update: vi.fn().mockResolvedValue({}),
     },
     player: {
-      findUnique: vi.fn().mockResolvedValue({ rating: 1200 }),
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ rating: 1200, playerCards: starterRows() }),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    playerCard: {
       update: vi.fn().mockResolvedValue({}),
     },
   };

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { hash, compare } from 'bcryptjs';
 import { randomInt } from 'node:crypto';
 import { DbService } from '../prisma/db.js';
+import { STARTER_CARDS } from '../game/balance.js';
 import type { LoginDto } from './dto/login.dto.js';
 import type { RegisterDto } from './dto/register.dto.js';
 
@@ -20,7 +21,9 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     const passwordHash = await hash(dto.password, 12);
+    
     const defaultCards = await this.db.card.findMany({
+      where: { name: { in: STARTER_CARDS.map((card) => card.name) } },
       select: { id: true },
     });
 

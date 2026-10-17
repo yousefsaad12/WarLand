@@ -139,7 +139,7 @@ Default rules are defined in [`src/game/balance.ts`](./src/game/balance.ts):
 | Base health | 1,000 |
 | Maximum deployment requests | 3 per player per tick |
 
-Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds, the player's deployment zone, and available energy. Both axes are in the inclusive `0..100` range. A deployment must be inside the player's own half — `LEFT` at `x < 50` and `RIGHT` at `x > 50`, with the `x = 50` midline off limits — and within the lane band `y = 50 ± laneHalfWidth` (default 42–58).
+Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds, the player's deployment zone, and available energy. Both axes are in the inclusive `0..100` range. A deployment must be inside the player's own half — `LEFT` at `x < 50` and `RIGHT` at `x > 50`, with the `x = 50` midline off limits — and within the lane band `y = 50 ± laneHalfWidth` (default 30–70, i.e. `laneHalfWidth = 20`).
 
 The online service loads card stats from the database. Card level is included in the in-match snapshot, but currently does **not** scale HP or damage. The local terminal demo uses the hard-coded `STARTER_CARDS` in `balance.ts`.
 
