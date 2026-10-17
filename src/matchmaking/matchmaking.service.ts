@@ -93,14 +93,15 @@ export class MatchmakingService {
           ? server.sockets.sockets.get(match.opponentSocketId)
           : undefined;
 
-        if (!searchingSocket?.connected) {
+        if (!searchingSocket?.connected || !opponentSocket?.connected) {
+          await this.cancelBothSearches(
+            playerId,
+            socketId,
+            match.opponentId,
+            match.opponentSocketId,
+            server,
+          );
           return;
-        }
-
-        if (!opponentSocket?.connected) {
-          await this.joinMatchQueue(playerId, playerScore, socketId);
-          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-          continue;
         }
 
         const opponent = await this.db.player.findUnique({
@@ -236,5 +237,25 @@ export class MatchmakingService {
     if (elapsedMs < 60_000) return 60;
     if (elapsedMs < 120_000) return 140;
     return 300;
+  }
+  private async cancelBothSearches(
+    playerId: string,
+    socketId: string,
+    opponentId: string,
+    opponentSocketId: string | undefined,
+    server: Server,
+  ) {
+    await Promise.allSettled([
+      this.leaveQueue(playerId),
+      this.leaveQueue(opponentId),
+    ]);
+
+    const message =
+      'Search cancelled: a player disconnected. Please search again.';
+
+    server.to(socketId).emit('match_error', { message });
+    if (opponentSocketId) {
+      server.to(opponentSocketId).emit('match_error', { message });
+    }
   }
 }
