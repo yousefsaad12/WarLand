@@ -1,0 +1,14 @@
+Unit sprites (knight, archer, guard, scout)
+===========================================
+
+Composited from the Liberated Pixel Cup (LPC) Universal Spritesheet:
+https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator
+
+Source art by wulax, Redshrike, and other LPC contributors.
+
+License: CC-BY-SA 3.0 / GPL 3.0 (see upstream CREDITS.csv)
+https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/blob/master/CREDITS.csv
+
+You must credit the LPC contributors when distributing this game.
+Layered body, armour, weapon, and shield sprites were composited into
+single south-facing unit frames and scaled 2× for battlefield use.

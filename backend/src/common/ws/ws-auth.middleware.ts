@@ -1,0 +1,32 @@
+// src/common/ws/ws-auth.middleware.ts
+import { Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
+
+export function createWsAuthMiddleware(jwtService: JwtService) {
+  return async (socket: Socket, next: (err?: Error) => void) => {
+    try {
+      
+      const headers = socket.handshake.headers;
+
+      const headerToken =
+        (headers['token'] as string) || (headers['authorization'] as string);
+
+      const cleanHeaderToken = headerToken?.startsWith('Bearer ')
+        ? headerToken.replace('Bearer ', '')
+        : headerToken;
+
+      const token =
+        socket.handshake.auth?.token ||
+        cleanHeaderToken ||
+        (socket.handshake.query?.token as string);
+
+      if (!token) throw new Error('No token provided');
+
+      const payload = await jwtService.verifyAsync(token);
+      socket.data.playerId = payload.sub;
+      next();
+    } catch {
+      next(new Error('Unauthorized'));
+    }
+  };
+}

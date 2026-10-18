@@ -14,7 +14,7 @@ import {
   type MatchView,
   type PlayerReward,
 } from '@/network/protocol';
-import { isInDeploymentZone } from '@/game/renderer/coordinates';
+import { isInDeploymentZone } from '@/features/game/renderer/coordinates';
 
 export type GameConnection =
   | 'idle'

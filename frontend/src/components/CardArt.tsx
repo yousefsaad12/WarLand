@@ -6,7 +6,7 @@ interface CardArtProps {
 }
 
 /**
- * Card artwork. Uses the same Kenney unit sprite that appears on the
+ * Card artwork. Uses the same LPC unit sprite that appears on the
  * battlefield so the hand reads consistently with the arena. Falls back to a
  * procedural SVG sigil if the sprite fails to load.
  */
@@ -49,11 +49,11 @@ export function CardArt({ cardId, className = '' }: CardArtProps) {
       </svg>
       {!failed && (
         <img
-          src={`/assets/kenney/units/${cardId}.png`}
+          src={`/assets/units/${cardId}.png`}
           alt=""
           draggable={false}
           onError={() => setFailed(true)}
-          className="pointer-events-none absolute inset-0 h-full w-full scale-[0.82] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+          className="pointer-events-none absolute inset-0 h-full w-full scale-100 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
         />
       )}
     </div>

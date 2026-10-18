@@ -2,7 +2,7 @@
 
 WarLand is a server-authoritative, real-time multiplayer lane-battle prototype. The backend is built with NestJS, Socket.IO, Prisma, PostgreSQL, and Redis. Players can register and log in, enter matchmaking, join a live match, deploy cards, and receive authoritative game updates.
 
-The project includes ranked matchmaking, live online matches, a local practice arena, and interactive terminal clients.
+The project includes ranked matchmaking, live online matches, a local practice arena, interactive terminal clients, and a React web client in `frontend/`.
 
 > **Project status:** Prototype. Active gameplay state and matchmaking presence are held in process memory. This version is intended for local development and single-server testing, not resilient multi-instance production hosting.
 
@@ -66,7 +66,7 @@ flowchart LR
 | `RedisService` | Redis connection and the atomic `findAndClaimMatch` Lua command. |
 | `GameplayGateway` | WebSocket authentication, participant room joins, deployment queueing, per-match tick timers, and room broadcasts. |
 | `GameplayService` | Load player decks, create/store match state, provide participant-checked views, advance the engine, and persist match outcomes. |
-| `src/game/engine/engine.ts` | Game rules and state transitions. It does not depend on NestJS, Socket.IO, or Prisma. |
+| `backend/src/game/engine/engine.ts` | Game rules and state transitions. It does not depend on NestJS, Socket.IO, or Prisma. |
 | `DbService` | Prisma client lifecycle and PostgreSQL access. |
 | `ActivePlayers` | In-memory mapping of player IDs to active match IDs, used to prevent active players from queueing again. |
 
@@ -127,7 +127,7 @@ sequenceDiagram
 
 ## Gameplay and balance
 
-Default rules are defined in [`src/game/balance.ts`](./src/game/balance.ts):
+Default rules are defined in [`backend/src/game/balance.ts`](./backend/src/game/balance.ts):
 
 | Rule | Default |
 |---|---:|
@@ -193,7 +193,7 @@ erDiagram
     }
 ```
 
-The current Prisma schema is [`prisma/schema.prisma`](./prisma/schema.prisma). The database records match participation and final winner flags; the detailed live simulation state remains in memory and is not serialized to PostgreSQL.
+The current Prisma schema is [`backend/prisma/schema.prisma`](./backend/prisma/schema.prisma). The database records match participation and final winner flags; the detailed live simulation state remains in memory and is not serialized to PostgreSQL.
 
 ## Run locally
 
@@ -210,7 +210,7 @@ The current Prisma schema is [`prisma/schema.prisma`](./prisma/schema.prisma). T
 npm ci
 ```
 
-Create or update the local `.env` file with the required settings (use your own local values; do not commit secrets):
+Create or update `backend/.env` with the required settings (use your own local values; do not commit secrets):
 
 ```dotenv
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/warland?schema=public"
@@ -221,9 +221,10 @@ PORT=3000
 WARLAND_ALLOWED_ORIGINS="http://localhost:5173"
 ```
 
-Generate the Prisma client and apply migrations:
+Generate the Prisma client and apply migrations (run these from the `backend/` directory, where `prisma.config.ts` and `prisma/` live):
 
 ```powershell
+cd backend
 npx prisma generate
 npx prisma migrate deploy
 ```
@@ -231,6 +232,7 @@ npx prisma migrate deploy
 There is currently no checked-in card seed script. Before registering players, insert the four intended card definitions into the `Card` table. You can use Prisma Studio for local development:
 
 ```powershell
+cd backend
 npx prisma studio
 ```
 
@@ -241,6 +243,16 @@ npm run start:dev
 ```
 
 The server listens on port `3000` by default. Set `PORT` to change it.
+
+### Start the web client
+
+The React client lives in `frontend/`. With the API running, start Vite in a second terminal (from the repository root):
+
+```powershell
+npm run dev
+```
+
+The dev server runs on `http://localhost:5173` and reads `VITE_SERVER_URL` (default `http://localhost:3000`; see `frontend/.env.example`).
 
 ### Create test players
 
@@ -351,22 +363,27 @@ HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORI
 
 | Command | Purpose |
 |---|---|
-| `npm run start:dev` | Start NestJS in watch mode. |
-| `npm run build` | Compile the NestJS application. |
-| `npm test` | Run Vitest tests. |
-| `npm run test:e2e` | Run configured end-to-end tests. |
-| `npm run lint` | Run Oxlint on `src/`, `test/`, and `scripts/`. |
+| `npm run start:dev` | Start the NestJS backend in watch mode. |
+| `npm run build` | Compile the NestJS backend. |
+| `npm test` | Run backend Vitest unit tests. |
+| `npm run test:e2e` | Run configured backend end-to-end tests. |
+| `npm run lint` | Run Oxlint on `backend/src/`, `backend/test/`, and `backend/scripts/`. |
 | `npm run loadtest` | Run the Socket.IO load test that plays bot-vs-bot matches to completion. |
 | `npm run game:terminal` | Build and run the local terminal simulation. |
 | `npm run game:terminal:online` | Build and run the online terminal client. |
-| `npx prisma migrate deploy` | Apply committed migrations. |
-| `npx prisma studio` | Open Prisma Studio for local data inspection/editing. |
+| `npm run seed:cards` | Seed card definitions via `prisma db execute`. |
+| `npm run frontend:dev` | Start the Vite dev server for the web client. |
+| `npm run frontend:build` | Build the web client for production. |
+| `npm run frontend:typecheck` | Type-check the web client. |
+| `npm run frontend:test` | Run the web client Vitest tests. |
+| `npx prisma migrate deploy` | Apply committed migrations (run from `backend/`). |
+| `npx prisma studio` | Open Prisma Studio for local data inspection/editing (run from `backend/`). |
 
-Automated coverage lives in [`src/game/engine/engine.spec.ts`](./src/game/engine/engine.spec.ts) (engine rules and determinism), [`src/gameplay/gameplay.service.spec.ts`](./src/gameplay/gameplay.service.spec.ts) (match lifecycle, join deadline, Elo persistence), and [`src/gameplay/gameplay.gateway.spec.ts`](./src/gameplay/gameplay.gateway.spec.ts) (socket handling and tick-timer cleanup). `npm run test:e2e` runs the full-match simulation in [`test/game-engine.e2e-spec.ts`](./test/game-engine.e2e-spec.ts).
+Automated coverage lives in [`backend/src/game/engine/engine.spec.ts`](./backend/src/game/engine/engine.spec.ts) (engine rules and determinism), [`backend/src/gameplay/gameplay.service.spec.ts`](./backend/src/gameplay/gameplay.service.spec.ts) (match lifecycle, join deadline, Elo persistence), and [`backend/src/gameplay/gameplay.gateway.spec.ts`](./backend/src/gameplay/gameplay.gateway.spec.ts) (socket handling and tick-timer cleanup). `npm run test:e2e` runs the full-match simulation in [`backend/test/game-engine.e2e-spec.ts`](./backend/test/game-engine.e2e-spec.ts).
 
 ## Load testing
 
-[`scripts/loadtest.mjs`](./scripts/loadtest.mjs) drives the real HTTP and Socket.IO contracts with bot accounts, matches them through Redis, plays full games, and reports timing and throughput. It is a black-box client: it uses no internal server APIs, so its numbers include network, auth, matchmaking, engine, and broadcast costs exactly as a real client would see them.
+[`backend/scripts/loadtest.mjs`](./backend/scripts/loadtest.mjs) drives the real HTTP and Socket.IO contracts with bot accounts, matches them through Redis, plays full games, and reports timing and throughput. It is a black-box client: it uses no internal server APIs, so its numbers include network, auth, matchmaking, engine, and broadcast costs exactly as a real client would see them.
 
 ```powershell
 # Short smoke test: 4 bots, one wave of matches.
@@ -425,7 +442,7 @@ Observations:
 
 The 500 and 1000 bot runs are not server errors — the failure is the load test's own tick-drift assertion. Tick drift measures the gap between consecutive `game_state` broadcasts against the 100 ms tick rate. At 500 concurrent matches the p95 gap reached 36 ms (threshold 30 ms), even though every deploy was accepted and every match finished correctly.
 
-The cause is the per-match tick timer in [`src/gameplay/gameplay.gateway.ts`](./src/gameplay/gameplay.gateway.ts) (`startMatchTickTimer`, `setInterval` per match). At 500 matches the server runs 5,000 independent timer callbacks per second on a single Node.js event loop. Each callback runs the engine step, serializes the full `MatchView`, and broadcasts `game_state` to the match room. Once the total per-second work approaches the loop's capacity, timers queue behind each other and fire late. The drift threshold detects this graceful degradation and fails the run so the regression is visible instead of silent.
+The cause is the per-match tick timer in [`backend/src/gameplay/gameplay.gateway.ts`](./backend/src/gameplay/gameplay.gateway.ts) (`startMatchTickTimer`, `setInterval` per match). At 500 matches the server runs 5,000 independent timer callbacks per second on a single Node.js event loop. Each callback runs the engine step, serializes the full `MatchView`, and broadcasts `game_state` to the match room. Once the total per-second work approaches the loop's capacity, timers queue behind each other and fire late. The drift threshold detects this graceful degradation and fails the run so the regression is visible instead of silent.
 
 ### Bottleneck analysis
 
@@ -453,29 +470,41 @@ This is expected for the current single-process in-memory design. If higher conc
 - **Card seed data is manual:** there is no checked-in seed script. Card definitions must exist before account registration, and every new account receives all available cards.
 - **Deck rules are strict:** each player must have exactly four cards, and both players must have matching card IDs.
 - **Card upgrades are not applied:** card level is stored and passed into snapshots, but card stats currently use the database base values at every level.
-- **No browser or mobile client ships with this repository:** only the backend and the terminal clients are included. The documented HTTP and Socket.IO contracts are client-agnostic, so a web client can be added later against the same interfaces.
+- **The bundled web client is thin:** the React client in `frontend/` covers auth, lobby, and live board rendering, but no mobile client ships. The documented HTTP and Socket.IO contracts are client-agnostic, so additional clients can be built against the same interfaces.
 - **Persistence failure needs operational follow-up:** final result saves are retried three times. If all attempts fail, the timer has stopped and an error is emitted; there is no durable background retry/reconciliation job.
 - **No dedicated gameplay integration tests yet:** build success and manual terminal play do not replace test coverage for matchmaking, disconnects, tick timing, and result persistence.
 - **CORS defaults to permissive for development:** explicitly configure `WARLAND_ALLOWED_ORIGINS` for client deployments on another host.
 
 ## Repository map
 
+npm workspaces split the repo into `backend/` and `frontend/`, each with its own `package.json`; the root `package.json` wires them together and forwards the shared scripts.
+
 ```text
-src/
-  auth/          Registration, login, JWT guard, socket CORS options
-  cards/         Card catalog and owned-card endpoints
-  game/
-    engine/      Framework-independent authoritative game simulation
-    balance.ts   Default rules and local demo starter cards
-    terminal-*   Local demo and online terminal client
-  gameplay/      Gameplay service, Socket.IO gateway, tick handling
-  matchmaking/   Redis matchmaking, gateway, and active-player store
-  players/       Player profile, statistics, leaderboard endpoints
-  prisma/        Prisma client lifecycle
-  redis/         Redis connection and Lua matchmaking command
-scripts/
-  loadtest.mjs   Socket.IO load test that plays bot-vs-bot matches
-prisma/
-  schema.prisma  PostgreSQL data model
-  migrations/    Database schema migrations
+backend/
+  src/
+    main.ts        Bootstrap
+    app.module.ts  Root module and application wiring
+    common/        Cross-cutting WebSocket auth middleware, socket CORS options, decorators
+      decorators/    current-user decorator
+      ws/            ws-auth middleware, ws-cors options
+    auth/          Registration, login, JWT guard
+    cards/         Card catalog and owned-card endpoints
+    game/
+      engine/      Framework-independent authoritative game simulation
+      balance.ts   Default rules and starter cards
+    gameplay/      Gameplay service, Socket.IO gateway, tick handling
+    matchmaking/   Redis matchmaking, gateway, and active-player store
+    players/       Player profile, statistics, leaderboard endpoints
+    prisma/        Prisma client lifecycle
+    redis/         Redis connection and Lua matchmaking command
+    dev/           Local demo and online terminal client
+  scripts/
+    loadtest.mjs   Socket.IO load test that plays bot-vs-bot matches
+  prisma/
+    schema.prisma  PostgreSQL data model
+    migrations/    Database schema migrations
+frontend/
+  src/           React client (features, components, network, store, renderer)
+  public/        Static assets
+  index.html     Vite entry HTML
 ```

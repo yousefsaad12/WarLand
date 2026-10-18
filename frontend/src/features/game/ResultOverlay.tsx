@@ -8,7 +8,7 @@ import type {
   MatchResult,
   PlayerReward,
 } from '@/network/protocol';
-import { matchOutcome, reasonLabel } from '@/game/format';
+import { matchOutcome, reasonLabel } from '@/features/game/format';
 
 interface ResultOverlayProps {
   result: MatchResult;

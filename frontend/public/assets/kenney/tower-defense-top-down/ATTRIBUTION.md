@@ -20,4 +20,4 @@ used as subtle, tinted terrain textures in the battlefield renderer:
 All other visual elements (bases, turrets, units, effects, card art) are drawn
 procedurally with PixiJS/CSS so the game stays coherent and works even when the
 textures above are unavailable. Replace the procedural art with sprites by
-extending `src/game/renderer/art.ts`.
+extending `src/features/game/renderer/art.ts`.

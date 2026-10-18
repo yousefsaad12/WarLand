@@ -1,6 +1,6 @@
 # compiled output
-/dist
-/frontend-dist
+/backend/dist
+/frontend/dist
 /node_modules
 /build
 
@@ -57,5 +57,4 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 node_modules/
 dist/
-
-/src/generated/prisma
+*.tsbuildinfo

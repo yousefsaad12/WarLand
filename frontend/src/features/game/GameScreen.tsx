@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react';
-import { GameCanvas } from '@/game/renderer/GameCanvas';
-import { BaseBars } from '@/game/components/BaseBars';
-import { MatchTimer } from '@/game/components/MatchTimer';
-import { EnergyBar } from '@/game/components/EnergyBar';
-import { CardHand } from '@/game/components/CardHand';
+import { GameCanvas } from '@/features/game/renderer/GameCanvas';
+import { BaseBars } from '@/features/game/components/BaseBars';
+import { MatchTimer } from '@/features/game/components/MatchTimer';
+import { EnergyBar } from '@/features/game/components/EnergyBar';
+import { CardHand } from '@/features/game/components/CardHand';
 import { useGameStore } from '@/store/gameStore';
 import { useUiStore } from '@/store/uiStore';
 import { ResultOverlay } from './ResultOverlay';

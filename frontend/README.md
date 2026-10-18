@@ -12,7 +12,7 @@ React + TypeScript (strict) client for the Warland server-authoritative lane-bat
 
 ## Scripts
 
-Run from the repository root:
+Run from the repository root (npm workspaces forward to `frontend/`), or run the same scripts inside `frontend/`:
 
 | Command | Description |
 | --- | --- |
@@ -20,7 +20,7 @@ Run from the repository root:
 | `npm run frontend:typecheck` | Type-check with `tsc --noEmit`. |
 | `npm run frontend:test` | Run the Vitest suite once. |
 | `npm run frontend:test:watch` | Run Vitest in watch mode. |
-| `npm run frontend:build` | Production build into `frontend-dist/`. |
+| `npm run frontend:build` | Production build into `frontend/dist/`. |
 | `npm run frontend:preview` | Preview the production build. |
 
 ## Configuration
@@ -41,10 +41,12 @@ src/
   features/
     auth/AuthScreen.tsx       register / login
     lobby/LobbyScreen.tsx     profile, leaderboard, matchmaking
-    game/GameScreen.tsx       arena + HUD + result overlay
-  game/
-    renderer/                 PixiJS arena (battlefield, coordinates, art, theme)
-    components/               HUD (energy, hand, timer, base bars)
+    game/
+      GameScreen.tsx          arena + HUD + result overlay
+      ResultOverlay.tsx       end-of-match result
+      format.ts               display helpers (energy, clock, outcome)
+      renderer/               PixiJS arena (battlefield, coordinates, art, theme, GameCanvas)
+      components/             HUD (energy, hand, timer, base bars)
   network/                    REST clients, socket client, protocol types
   store/                      Zustand stores
   components/                 shared UI (Panel, Button, Icon, CardArt, Toasts)
@@ -59,17 +61,18 @@ side. Local units are always blue, the enemy always red.
 
 ## Assets
 
-All art is from **Kenney** (https://kenney.nl) and is licensed **CC0 1.0**
-(public domain). License files are kept beside the assets under
-`public/assets/kenney/`.
+Terrain, UI, icons, and fonts are from **Kenney** (https://kenney.nl),
+licensed **CC0 1.0** (public domain). Unit sprites are composited from the
+**Universal LPC Spritesheet** (CC-BY-SA 3.0 / GPL 3.0) — see
+`public/assets/units/License.txt` for attribution requirements.
 
-| Folder | Kenney pack | Used for |
+| Folder | Source | Used for |
 | --- | --- | --- |
-| `medieval-rts/` | RTS Pack: Medieval | Arena terrain tiles, props, base keep |
-| `units/` | RTS Pack: Medieval | Unit sprites (`knight`, `archer`, `guard`, `scout`) |
-| `ui/` | Fantasy UI Borders + UI Pack | Panel frame, button images |
-| `icons/` | Game Icons | HUD / result icons |
-| `public/assets/fonts/` | Kenney Future | Display headings |
+| `kenney/medieval-rts/` | Kenney RTS Pack: Medieval | Arena terrain tiles, props, base keep |
+| `kenney/ui/` | Kenney Fantasy UI Borders + UI Pack | Panel frame, button images |
+| `kenney/icons/` | Kenney Game Icons | HUD / result icons |
+| `units/` | Universal LPC Spritesheet (CC-BY-SA) | Unit sprites (`knight`, `archer`, `guard`, `scout`) |
+| `fonts/` | Kenney Future | Display headings |
 
 Assets are loaded by the PixiJS renderer at runtime; if a texture is missing
 the renderer falls back to procedural shapes so the arena always renders.
