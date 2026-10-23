@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { AttackEvent, GameSide, UnitView } from '@/network/protocol';
 import { sfx } from '../audio/SfxManager';
 import { ArenaLayout, MAP_CENTER, mapToScreen } from '../coords';
-import { COLORS, FONT_DISPLAY, UNIT_BODY_HEIGHT } from '../theme';
+import { CARD_ACCENT, COLORS, FONT_DISPLAY, UNIT_BODY_HEIGHT } from '../theme';
 import type { VfxManager } from '../vfx/VfxManager';
 
 interface UnitVisual {
@@ -76,7 +76,10 @@ export class UnitManager {
         this.kill(id, u, reduceMotion);
       }
     }
-    this.layer.sort('y', (a: UnitVisual['container'], b: UnitVisual['container']) => a.y - b.y);
+    this.layer.sort(
+      'y',
+      (a: UnitVisual['container'], b: UnitVisual['container']) => a.y - b.y,
+    );
   }
 
   playAttack(
@@ -172,8 +175,17 @@ export class UnitManager {
         ? { x: attacker.container.x, y: attacker.container.y - 14 }
         : attackerSide
           ? {
-              x: mapToScreen(layout, attackerSide === 'LEFT' ? 6 : 94, MAP_CENTER).x,
-              y: mapToScreen(layout, attackerSide === 'LEFT' ? 6 : 94, MAP_CENTER).y - 34,
+              x: mapToScreen(
+                layout,
+                attackerSide === 'LEFT' ? 6 : 94,
+                MAP_CENTER,
+              ).x,
+              y:
+                mapToScreen(
+                  layout,
+                  attackerSide === 'LEFT' ? 6 : 94,
+                  MAP_CENTER,
+                ).y - 34,
             }
           : targetPos;
       const bolt = this.scene.add.image(from.x, from.y, 'fx_spark');
@@ -220,7 +232,12 @@ export class UnitManager {
               trail.remove();
               bolt.destroy();
               this.impact(targetPos!.x, targetPos!.y - 6, reduceMotion);
-              this.floatDamage(targetPos!.x, targetPos!.y - 28, ev.damage, ev.targetSide);
+              this.floatDamage(
+                targetPos!.x,
+                targetPos!.y - 28,
+                ev.damage,
+                ev.targetSide,
+              );
             },
           });
         },
@@ -229,7 +246,11 @@ export class UnitManager {
       this.impact(targetPos.x, targetPos.y - 4, reduceMotion);
       this.floatDamage(targetPos.x, targetPos.y - 28, ev.damage, ev.targetSide);
       if (!reduceMotion) {
-        const slash = this.scene.add.image(targetPos.x, targetPos.y - 8, 'fx_slash');
+        const slash = this.scene.add.image(
+          targetPos.x,
+          targetPos.y - 8,
+          'fx_slash',
+        );
         slash.setScale(0.5);
         slash.setAlpha(0.9);
         slash.setDepth(18);
@@ -270,7 +291,13 @@ export class UnitManager {
     sprite.play(`${unit.cardId}_walk`);
     if (unit.owner === 'RIGHT') sprite.setFlipX(true);
 
-    const hpBg = this.scene.add.rectangle(0, -UNIT_BODY_HEIGHT - 6, 34, 5, COLORS.ink900);
+    const hpBg = this.scene.add.rectangle(
+      0,
+      -UNIT_BODY_HEIGHT - 6,
+      34,
+      5,
+      COLORS.ink900,
+    );
     hpBg.setStrokeStyle(1, 0x000000, 0.6);
     hpBg.setVisible(false);
     const hpBar = this.scene.add
@@ -312,7 +339,7 @@ export class UnitManager {
       });
       // Deploy rune circle expanding outward
       const rune = this.scene.add.image(pos.x, pos.y, 'fx_circle');
-      rune.setTint(COLORS.gold);
+      rune.setTint(CARD_ACCENT[unit.cardId] ?? COLORS.gold);
       rune.setAlpha(0.75);
       rune.setScale(0.2);
       rune.setDepth(16);
@@ -325,8 +352,9 @@ export class UnitManager {
         onComplete: () => rune.destroy(),
       });
       // Deploy shockwave ring + particle burst
+      const accent = CARD_ACCENT[unit.cardId] ?? COLORS.gold;
       this.vfx.burstDeployRing(pos.x, pos.y, 8);
-      this.vfx.expandRing(pos.x, pos.y, COLORS.gold, 36, 350);
+      this.vfx.expandRing(pos.x, pos.y, accent, 36, 350);
       this.vfx.burstGhost(pos.x, pos.y - 8, 6);
       // Ground stomp on heavier units
       if (unit.cardId === 'knight' || unit.cardId === 'guard') {
@@ -335,7 +363,7 @@ export class UnitManager {
     }
 
     if (localSide === unit.owner) {
-      sfx.deploy();
+      sfx.deploy(unit.cardId);
       if (!reduceMotion) this.scene.cameras.main.shake(70, 0.0012);
     }
 
@@ -425,13 +453,20 @@ export class UnitManager {
 
   private kill(id: string, u: UnitVisual, reduceMotion: boolean) {
     this.units.delete(id);
-    sfx.death();
+    sfx.death(u.cardId);
     if (reduceMotion) {
       u.container.destroy();
       return;
     }
     this.vfx.puffDeath(u.container.x, u.container.y - 12, 8);
     this.vfx.puffDust(u.container.x, u.container.y - 2, 5);
+    this.vfx.expandRing(
+      u.container.x,
+      u.container.y + 2,
+      u.owner === 'LEFT' ? 0x4f9bff : 0xff4f4f,
+      34,
+      360,
+    );
     this.scene.tweens.add({
       targets: u.container,
       alpha: 0,
@@ -448,6 +483,7 @@ export class UnitManager {
 
   private hitReaction(u: UnitVisual, damage: number, reduceMotion: boolean) {
     if (reduceMotion) return;
+    this.scene.tweens.killTweensOf(u.sprite);
     u.sprite.setTint(0xffffff);
     const base = u.baseScale;
     this.scene.tweens.add({
@@ -465,14 +501,30 @@ export class UnitManager {
       yoyo: true,
       repeat: 1,
     });
-    this.vfx.burstHit(u.container.x, u.container.y - 22, Math.min(9, 4 + Math.floor(damage / 6)));
+    this.vfx.burstHit(
+      u.container.x,
+      u.container.y - 22,
+      Math.min(9, 4 + Math.floor(damage / 6)),
+    );
+    this.scene.tweens.add({
+      targets: u.sprite,
+      x: Phaser.Math.Between(-3, 3),
+      duration: 45,
+      yoyo: true,
+      repeat: 1,
+      ease: 'Quad.easeOut',
+    });
     this.scene.time.delayedCall(75, () => {
       if (u.sprite.scene) {
         u.sprite.clearTint();
         u.sprite.setAngle(0);
       }
     });
-    this.scene.cameras.main.shake(45, Math.min(0.0035, 0.0008 + damage * 0.00012));
+    sfx.hit(damage);
+    this.scene.cameras.main.shake(
+      45,
+      Math.min(0.004, 0.0008 + damage * 0.00014),
+    );
   }
 
   private impact(x: number, y: number, reduceMotion: boolean) {
@@ -505,7 +557,7 @@ export class UnitManager {
         });
       }
     }
-    sfx.hit();
+    sfx.hit(8);
   }
 
   private floatDamage(
@@ -545,13 +597,14 @@ export class UnitManager {
 
   private scaleFor(cardId: string, kind: 'walk' | 'attack'): number {
     const manifest = this.scene.registry.get('unitsManifest') as
-      | UnitsManifest
-      | undefined;
+      UnitsManifest | undefined;
     const body = manifest?.units[cardId]?.[kind].bodyHeight ?? 32;
     return UNIT_BODY_HEIGHT / body;
   }
 
-  private applyWalkScale(u: Pick<UnitVisual, 'sprite' | 'cardId'> & Partial<UnitVisual>) {
+  private applyWalkScale(
+    u: Pick<UnitVisual, 'sprite' | 'cardId'> & Partial<UnitVisual>,
+  ) {
     const scale = this.scaleFor(u.cardId, 'walk');
     u.sprite.setScale(scale);
     if ('baseScale' in u) u.baseScale = scale;

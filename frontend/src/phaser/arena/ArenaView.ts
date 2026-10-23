@@ -258,8 +258,11 @@ export class ArenaView {
     base.pool.setTint(0xff3f3f).setAlpha(0.28);
     sfx.baseHit();
     this.scene.cameras.main.shake(300, 0.0065);
-    this.vfx.burstEmbers(base.pos.x, base.pos.y - base.keepHeight * 0.3, 24);
-    this.vfx.puffDeath(base.pos.x, base.pos.y - base.keepHeight * 0.2, 18);
+    this.vfx.shatter(
+      base.pos.x,
+      base.pos.y - base.keepHeight * 0.24,
+      side === 'LEFT' ? COLORS.teamLeft : COLORS.teamRight,
+    );
 
     const scorch = this.scene.add
       .ellipse(

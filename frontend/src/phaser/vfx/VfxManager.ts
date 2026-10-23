@@ -10,7 +10,10 @@ type EmitterOp =
  */
 export class VfxManager {
   private scene: Phaser.Scene;
-  private emitters: Record<string, Phaser.GameObjects.Particles.ParticleEmitter | null> = {};
+  private emitters: Record<
+    string,
+    Phaser.GameObjects.Particles.ParticleEmitter | null
+  > = {};
   private motes: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private fireflies: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
@@ -234,8 +237,16 @@ export class VfxManager {
    * Animated expanding ring — a single circle that grows and fades.
    * Used for deploy shockwave, base hit emphasis, etc.
    */
-  expandRing(x: number, y: number, color: number, maxRadius = 40, duration = 380) {
-    const ring = this.scene.add.circle(x, y, 6).setStrokeStyle(2.5, color, 0.85);
+  expandRing(
+    x: number,
+    y: number,
+    color: number,
+    maxRadius = 40,
+    duration = 380,
+  ) {
+    const ring = this.scene.add
+      .circle(x, y, 6)
+      .setStrokeStyle(2.5, color, 0.85);
     ring.setFillStyle(color, 0.08);
     ring.setDepth(19);
     this.scene.tweens.add({
@@ -267,6 +278,13 @@ export class VfxManager {
         onComplete: () => ellipse.destroy(),
       });
     }
+  }
+
+  shatter(x: number, y: number, color = 0xff6b4d) {
+    this.expandRing(x, y, color, 58, 520);
+    this.burstEmbers(x, y - 8, 18);
+    this.puffDeath(x, y - 12, 14);
+    this.puffDust(x, y, 8);
   }
 
   destroy() {

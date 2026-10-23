@@ -118,18 +118,26 @@ export function LobbyScreen() {
   const canQueue = connection === 'connected' && queue === 'idle';
 
   return (
-    <div className="warland-bg lobby-shell relative flex min-h-screen flex-col overflow-x-hidden overflow-y-auto">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden overflow-y-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(140%_90%_at_50%_-10%,rgba(230,180,80,0.08),transparent_65%),radial-gradient(90%_70%_at_50%_110%,rgba(79,155,255,0.06),transparent_65%),linear-gradient(180deg,#070a12_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto,auto]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.12),transparent_70%)]" />
-      <header className="lobby-header relative z-10 flex flex-wrap items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6 sm:py-5 gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-[0.3em] sm:tracking-[0.6em] uppercase gold-text">
-            Warland
-          </h1>
-          <p className="mt-0.5 text-[9px] sm:text-[10px] uppercase tracking-[0.4em] sm:tracking-[0.8em] text-slate-500">
-            Tactical Lane Warfare
-          </p>
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-gradient-to-b from-[#0a0e17]/75 to-transparent px-4 py-3 shadow-[0_16px_40px_-34px_rgba(0,0,0,0.95)] sm:px-6 sm:py-5">
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-9 w-9 place-items-center rounded-xl border border-gold/40 bg-gradient-to-br from-gold/20 to-gold/[0.03] text-gold shadow-[0_0_24px_-12px_rgba(245,193,110,0.9)]"
+            aria-hidden="true"
+          >
+            <Icon name="target" className="h-4 w-4" />
+          </span>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-[0.3em] sm:tracking-[0.6em] uppercase gold-text">
+              Warland
+            </h1>
+            <p className="mt-0.5 text-[9px] sm:text-[10px] uppercase tracking-[0.4em] sm:tracking-[0.8em] text-slate-500">
+              Tactical Lane Warfare
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:gap-4">
           <AudioToggle />
           <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/5 bg-white/[0.01] px-2.5 py-1 text-xs text-slate-400">
             <span className={`h-1.5 w-1.5 rounded-full ${conn.tone}`} />
@@ -145,11 +153,17 @@ export function LobbyScreen() {
         </div>
       </header>
 
-      <main className="lobby-main relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="flex flex-col gap-6">
-          <Panel className="lobby-hero relative p-5 sm:p-8">
+          <Panel className="relative min-h-[232px] motion-safe:animate-rise p-5 sm:p-8">
+            <div
+              className="pointer-events-none absolute bottom-[-1.25rem] right-6 rotate-[-12deg] text-gold/[0.07] max-sm:scale-[0.78] max-sm:right-2"
+              aria-hidden="true"
+            >
+              <Icon name="shield" className="h-28 w-28" />
+            </div>
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="relative z-10">
                 <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
                   Commander
                 </p>
@@ -160,7 +174,7 @@ export function LobbyScreen() {
                   Lead your forces to victory
                 </p>
               </div>
-              <div className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.3em] text-gold shrink-0">
+              <div className="relative z-10 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 sm:px-4 sm:py-2 text-[10px] sm:text-xs uppercase tracking-[0.3em] text-gold shrink-0">
                 Ranked
               </div>
             </div>
@@ -177,7 +191,7 @@ export function LobbyScreen() {
           </Panel>
 
           {profile && profile.deck.length > 0 && (
-            <Panel className="p-5 sm:p-7">
+            <Panel className="bg-gradient-to-b from-[#111723]/95 to-[#080b12]/[0.98] motion-safe:animate-rise p-5 sm:p-7 [animation-delay:100ms]">
               <div className="mb-4 sm:mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
@@ -201,18 +215,90 @@ export function LobbyScreen() {
               </div>
             </Panel>
           )}
+        </div>
 
-          <Panel className="p-5 sm:p-7">
-            <div className="mb-4 sm:mb-5 flex items-center justify-between">
+        <div className="flex flex-col gap-4">
+          <Panel className="order-2 relative flex min-h-[300px] flex-col items-center justify-between overflow-hidden bg-[radial-gradient(80%_55%_at_50%_24%,rgba(230,180,80,0.13),transparent_72%),linear-gradient(160deg,rgba(19,26,39,0.98),rgba(7,10,16,0.99))] motion-safe:animate-rise p-5 text-center after:pointer-events-none after:absolute after:inset-4 after:rounded-2xl after:border after:border-gold/[0.08] sm:min-h-[340px] sm:p-6 [animation-delay:80ms]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.14),transparent_70%)]" />
+            <div className="relative z-10 flex min-h-[250px] w-full max-w-sm flex-col items-center justify-center">
+              {queue === 'searching' ? (
+                <>
+                  <div className="relative mb-8 flex h-28 w-28 items-center justify-center">
+                    <span className="absolute h-full w-full animate-ping rounded-full border border-gold/30" />
+                    <span className="absolute h-20 w-20 rounded-full border border-gold/40" />
+                    <span className="text-2xl font-semibold tracking-[0.4em] gold-text">
+                      {elapsed}s
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-100">
+                    Searching for opponent
+                  </h3>
+                  <p className="mt-2 max-w-xs text-sm text-slate-500">
+                    Finding a commander of comparable skill level
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="mt-8"
+                    onClick={() => leaveQueue()}
+                  >
+                    Cancel search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
+                    <Icon name="target" className="h-6 w-6 text-gold" />
+                  </div>
+                  <h3 className="text-2xl font-semibold text-slate-100">
+                    Ready for Battle
+                  </h3>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+                    Command your deck across a single lane. Destroy the enemy
+                    base before time runs out.
+                  </p>
+                  <Button
+                    variant="primary"
+                    className="mt-8 w-full max-w-xs justify-center px-12 py-3 sm:max-w-sm"
+                    disabled={!canQueue}
+                    loading={connection === 'connecting'}
+                    onClick={() => joinQueue()}
+                  >
+                    Find Match
+                  </Button>
+                  {!canQueue && connection !== 'connecting' && (
+                    <p className="mt-4 text-xs text-amber-300">
+                      {connection === 'connected'
+                        ? 'Preparing matchmaker'
+                        : 'Not connected to server'}
+                    </p>
+                  )}
+                </>
+              )}
+
+              {error && (
+                <div className="mt-8 flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+                  <span>{error}</span>
+                  <button className="text-red-300/80" onClick={clearError}>
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          <Panel className="order-1 max-h-[250px] overflow-y-auto bg-gradient-to-b from-[#111723]/95 to-[#080b12]/[0.98] motion-safe:animate-rise p-5 sm:max-h-[270px] sm:p-6 [animation-delay:180ms]">
+            <div className="mb-4 flex items-start justify-between gap-4 sm:mb-5">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
                   Leaderboard
                 </p>
-                <p className="mt-1 text-base sm:text-lg font-semibold text-slate-100">
+                <p className="mt-1 text-base font-semibold text-slate-100 sm:text-lg">
                   Top Commanders
                 </p>
               </div>
-              <Icon name="trophy" className="h-4 w-4 text-gold" />
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-gold/25 bg-gold/10 text-gold">
+                <Icon name="trophy" className="h-4 w-4" />
+              </div>
             </div>
             {leaderboardError ? (
               <p className="text-sm text-amber-300">
@@ -221,23 +307,39 @@ export function LobbyScreen() {
             ) : leaderboard.length === 0 ? (
               <p className="text-sm text-slate-500">No ranked players yet.</p>
             ) : (
-              <ol className="space-y-1">
+              <ol className="space-y-1.5">
                 {leaderboard.map((row) => (
                   <li
                     key={row.id}
-                    className="flex items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-white/[0.01]"
+                    className="flex items-center justify-between rounded-xl border border-transparent px-2.5 py-2.5 text-sm transition-colors hover:border-white/5 hover:bg-white/[0.03] sm:px-3"
                   >
-                    <span className="flex items-center gap-3">
-                      <span className="w-6 text-right font-mono text-xs text-slate-500">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={[
+                          'grid h-7 w-7 shrink-0 place-items-center rounded-lg border font-mono text-xs font-semibold',
+                          row.rank === 1
+                            ? 'border-gold/50 bg-gold/15 text-gold'
+                            : row.rank === 2
+                              ? 'border-slate-300/30 bg-slate-300/10 text-slate-200'
+                              : row.rank === 3
+                                ? 'border-amber-700/40 bg-amber-800/15 text-amber-300'
+                                : 'border-white/5 bg-white/[0.02] text-slate-500',
+                        ].join(' ')}
+                      >
                         {row.rank}
                       </span>
-                      <span className="text-slate-200">
+                      <span className="min-w-0 truncate text-slate-200">
                         {row.displayName}
                         <span className="text-slate-600">#{row.tag}</span>
                       </span>
                     </span>
-                    <span className="gold-text font-semibold">
-                      {row.rating}
+                    <span className="ml-3 shrink-0 text-right">
+                      <span className="block font-mono text-sm font-semibold text-gold">
+                        {row.rating}
+                      </span>
+                      <span className="block text-[9px] uppercase tracking-[0.2em] text-slate-600">
+                        rating
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -245,74 +347,6 @@ export function LobbyScreen() {
             )}
           </Panel>
         </div>
-
-        <Panel className="lobby-side-panel relative flex flex-col items-center justify-center overflow-hidden p-6 sm:p-10 text-center">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.14),transparent_70%)]" />
-          <div className="relative z-10 flex flex-col items-center">
-            {queue === 'searching' ? (
-              <>
-                <div className="relative mb-8 flex h-28 w-28 items-center justify-center">
-                  <span className="absolute h-full w-full animate-ping rounded-full border border-gold/30" />
-                  <span className="absolute h-20 w-20 rounded-full border border-gold/40" />
-                  <span className="text-2xl font-semibold tracking-[0.4em] gold-text">
-                    {elapsed}s
-                  </span>
-                </div>
-                <h3 className="text-xl font-semibold text-slate-100">
-                  Searching for opponent
-                </h3>
-                <p className="mt-2 max-w-xs text-sm text-slate-500">
-                  Finding a commander of comparable skill level
-                </p>
-                <Button
-                  variant="ghost"
-                  className="mt-8"
-                  onClick={() => leaveQueue()}
-                >
-                  Cancel search
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-gold/40 bg-gold/10">
-                  <Icon name="target" className="h-6 w-6 text-gold" />
-                </div>
-                <h3 className="text-2xl font-semibold text-slate-100">
-                  Ready for Battle
-                </h3>
-                <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-                  Command your deck across a single lane. Destroy the enemy base
-                  before time runs out.
-                </p>
-                <Button
-                  variant="primary"
-                  className="mt-8 sm:mt-10 w-full sm:w-auto px-12"
-                  disabled={!canQueue}
-                  loading={connection === 'connecting'}
-                  onClick={() => joinQueue()}
-                >
-                  Find Match
-                </Button>
-                {!canQueue && connection !== 'connecting' && (
-                  <p className="mt-4 text-xs text-amber-300">
-                    {connection === 'connected'
-                      ? 'Preparing matchmaker'
-                      : 'Not connected to server'}
-                  </p>
-                )}
-              </>
-            )}
-
-            {error && (
-              <div className="mt-8 flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
-                <span>{error}</span>
-                <button className="text-red-300/80" onClick={clearError}>
-                  Dismiss
-                </button>
-              </div>
-            )}
-          </div>
-        </Panel>
       </main>
 
       {/* Card inspection modal */}
@@ -328,7 +362,7 @@ export function LobbyScreen() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-white/[0.01] px-4 py-4 sm:px-6 sm:py-5 text-center">
+    <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.01] px-4 py-4 text-center after:absolute after:bottom-2 after:right-3 after:h-px after:w-6 after:bg-gold/45 sm:px-6 sm:py-5">
       <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.5em] text-slate-500">
         {label}
       </p>
@@ -356,8 +390,8 @@ function DeckCard({
 
   return (
     <div
-      className="deck-card group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent cursor-pointer transition-all hover:border-gold/30 hover:scale-[1.02] active:scale-[0.98]"
-      style={{ '--card-index': index } as CSSProperties}
+      className="group motion-safe:animate-rise overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent transition-all hover:scale-[1.02] hover:border-gold/30 active:scale-[0.98]"
+      style={{ animationDelay: `${140 + index * 55}ms` } as CSSProperties}
       onClick={() => onSelect?.()}
     >
       <div className="relative h-20 w-full">

@@ -4,41 +4,9 @@ WarLand is a server-authoritative, real-time multiplayer lane-battle prototype. 
 
 The project includes ranked matchmaking, live online matches, a local practice arena, interactive terminal clients, and a React web client in `frontend/`.
 
-![WarLand Banner](docs/screenshots/game_battle.png)
-
 > **Project status:** Prototype. Active gameplay state and matchmaking presence are held in process memory. This version is intended for local development and single-server testing, not resilient multi-instance production hosting.
 
-## Screenshots
-
-WarLand ships with a polished React + PixiJS web client. Below is a tour of the three primary screens.
-
-| Screen | Preview | Description |
-|---|---|---|
-| **Authentication** | ![Auth Screen](docs/screenshots/auth_screen.png) | Clean login and registration with real-time validation for username (3–30 chars), display name (1–80 chars), and password (8–128 chars). Tabbed Login/Register toggle. |
-| **Lobby / Commander Hub** | ![Lobby Screen](docs/screenshots/lobby_screen.png) | Central command center showing commander identity (`Name#Tag`), rating, level, win/loss record, your owned card deck with art, global leaderboard, live matchmaking status with queue timer, and connection state indicator. |
-| **Live Battle Arena** | ![Game Screen](docs/screenshots/game_screen.png) | Full tactical battlefield rendered with PixiJS. Top bar shows both base health bars and player names; center shows match timer; bottom shows regenerating energy bar, selected-card hint, pending-deploy counter, and your card hand. Click/tap your deployment zone to spawn units. Victory/defeat overlay with rating rewards on match end. |
-
-### Auth Screen
-
-![Auth Screen](docs/screenshots/auth_screen.png)
-
-The first thing every commander sees. Enter a username, display name, and password to register, or switch to the Login tab to sign in. Client-side validation runs live before any network call; server-side validation double-checks with a global validation pipe (unknown fields rejected, whitelisting enabled).
-
-### Lobby
-
-![Lobby Screen](docs/screenshots/lobby_screen.png)
-
-After authentication you land in the lobby. The left column shows your commander profile (rating, level, W–L record) and your four-card deck rendered with Kenney card art. The right column shows the global leaderboard and the matchmaking panel. Press **Find Match** to join the queue; a live search timer counts elapsed seconds. When a match is found, the client automatically connects to the `/gameplay` namespace and transitions into the arena.
-
-### Game Arena
-
-![Game Screen](docs/screenshots/game_screen.png)
-
-The heart of WarLand. A top-down PixiJS canvas renders both bases, all living units, and the terrain. The header shows each player's base HP bar and the authoritative match timer. The footer shows your current energy (regenerating at 0.5/sec up to max 10), a hint about which card is selected, a "deploying" badge when requests are queued, and your card hand. Select a card, then tap anywhere in your own half (x < 50 for LEFT, x > 50 for RIGHT, y in 30–70) to deploy. The server validates every deployment and broadcasts the authoritative state back every tick.
-
-Attacks are animated from the server's per-tick attack events: melee units lunge and swing a swoosh, ranged units fire a projectile that arcs to the target, and every landed hit produces a white flash, a spark burst, and a floating damage number. A dashed circle shows the selected card's attack range, and a faint line links units that are engaged. All of this motion respects the in-game **reduce motion** toggle, which keeps projectiles and damage numbers but drops swooshes, sparks, and flashes.
-
-The combat effects are sprite-based rather than drawn with vector calls. The swing crescents, hit sparks, impact rings, muzzle blasts and the arrow projectile come from the Kenney **Particle Pack** and **Board Game Icons** (both CC0 1.0, vendored under `frontend/public/assets/kenney/` and credited in each pack's `ATTRIBUTION.md`). The particles are greyscale, so they are tinted to the team colour; unit bodies keep their Liberated Pixel Cup art. Every effect has a procedural fallback, so the game still renders correctly if the art fails to load.
+For a full engineering inventory covering architecture, data flow, contracts, tests, performance, security, and roadmap, see [`PROJECT_REPORT.txt`](./PROJECT_REPORT.txt).
 
 ## Contents
 
@@ -66,6 +34,7 @@ The combat effects are sprite-based rather than drawn with vector calls. The swi
 ## Features
 
 ### Gameplay
+
 - **Server-authoritative combat.** The game engine is pure TypeScript, framework-independent, and deterministic. Every unit position, attack, and death is decided server-side; clients only render and send intent.
 - **Card-based unit deployment.** Each card spawns a unique unit with its own cost, HP, damage, attack speed, movement speed, and range. Deployments are validated against ownership, energy, position bounds, and the player's own half of the board.
 - **Energy economy.** Starting energy 5, max 10, regenerating 0.5 per second. Energy is tracked in hundredths internally to avoid floating-point drift.
@@ -73,34 +42,50 @@ The combat effects are sprite-based rather than drawn with vector calls. The swi
 - **Two victory paths.** Destroy the enemy base (1000 HP) to win instantly, or survive the 180-second (1800-tick) match clock.
 
 ### Multiplayer and progression
+
 - **Rating-based matchmaking.** Players queue into a Redis sorted set; an atomic Lua script (`findAndClaimMatch`) pairs the two closest-rated players and claims them race-condition-free.
 - **JWT authentication everywhere.** HTTP endpoints use a Bearer guard; both Socket.IO namespaces (`/` and `/gameplay`) authenticate via a shared WS middleware that verifies the JWT on connect.
 - **Persistent rankings.** Match results, winner flags, and per-player win/loss counters are written to PostgreSQL through Prisma. The leaderboard endpoint returns players ranked by rating.
 - **Active-player guard.** An in-memory store prevents a player who is already in a match from queueing again.
 
 ### Developer experience
+
 - **Interactive terminal clients.** An online multiplayer client (connects to the real server) and a fully local simulation (no DB/Redis required) for rapid balance iteration.
 - **Bot load-test harness.** A black-box client that registers real accounts, matches them through Redis, plays full games via the public contracts, and reports latency/throughput/accept-rate metrics.
 - **Comprehensive tests.** Engine unit tests (rules + determinism), gameplay service tests (lifecycle, join deadline, Elo persistence), gateway tests (socket handling, timer cleanup), and a full-match e2e simulation.
 - **npm workspaces.** One root install wires both `backend/` and `frontend/` with forwarded scripts.
 
+### Current product strengths
+
+- **Clear server authority.** Clients send intent; the engine decides movement, attacks, energy, damage, and outcomes.
+- **Deterministic rules boundary.** The pure engine can be tested and simulated without NestJS, Prisma, Redis, or a browser.
+- **Readable card identity.** Knight, Archer, Guard, and Scout have different costs, stats, roles, art accents, deployment effects, and sound pitches.
+- **Responsive command lobby.** The lobby adapts across desktop, tablet, mobile, and short screens, with commander stats, deck inspection, a right-side leaderboard, and a prominent match action.
+- **Battle feedback.** Deployments use rune rings, particles, card-colored accents, and sound; hits flash and shake units; deaths collapse with dust and particles; bases crack, smoke, pulse, and shatter.
+- **Accessibility controls.** Reduced motion and sound preferences are persisted and respected by the Phaser scene and UI.
+- **Operational visibility.** Unit tests, end-to-end simulation, terminal clients, and a black-box load test expose both correctness and scaling behavior.
+
+### Current implementation boundary
+
+The product currently ships four starter cards, one lane, one base per side, ranked matchmaking, player-card XP, Elo-style rating updates, and a live battle renderer. Unlockable units, deck editing, quests, achievements, seasonal rewards, leagues, rematches, and practice-vs-bot mode are not implemented yet; they are natural next product slices rather than hidden assumptions in the current UI.
+
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Backend framework | NestJS (modular, DI, decorators) |
-| Real-time transport | Socket.IO (namespaced, JWT-authenticated) |
-| Database | PostgreSQL via Prisma (schema + migrations) |
-| Matchmaking store | Redis (sorted set + Lua atomic claim) |
-| Auth | JWT access tokens + bcrypt password hashing |
-| Game engine | Pure TypeScript, zero framework dependencies |
-| Web client | React 19 + Vite 8 + PixiJS 8 (2D WebGL renderer) |
-| State management | Zustand 5 |
-| Styling | Tailwind CSS 4 |
-| Language | TypeScript 6 throughout |
-| Testing | Vitest (backend + frontend), Testing Library, jsdom |
-| Linting | Oxlint (backend), tsc --noEmit (frontend typecheck) |
-| Terminal clients | Node.js readline + Socket.IO client |
+| Layer               | Technology                                              |
+| ------------------- | ------------------------------------------------------- |
+| Backend framework   | NestJS (modular, DI, decorators)                        |
+| Real-time transport | Socket.IO (namespaced, JWT-authenticated)               |
+| Database            | PostgreSQL via Prisma (schema + migrations)             |
+| Matchmaking store   | Redis (sorted set + Lua atomic claim)                   |
+| Auth                | JWT access tokens + bcrypt password hashing             |
+| Game engine         | Pure TypeScript, zero framework dependencies            |
+| Web client          | React 19 + Vite 8 + Phaser 4 (2D WebGL/canvas renderer) |
+| State management    | Zustand 5                                               |
+| Styling             | Tailwind CSS 4                                          |
+| Language            | TypeScript 6 throughout                                 |
+| Testing             | Vitest (backend + frontend), Testing Library, jsdom     |
+| Linting             | Oxlint (backend), tsc --noEmit (frontend typecheck)     |
+| Terminal clients    | Node.js readline + Socket.IO client                     |
 
 ## Architecture at a glance
 
@@ -123,16 +108,16 @@ flowchart LR
 
 ### Responsibilities
 
-| Component | Responsibility |
-|---|---|
-| `AuthModule` | Registration, password verification, JWT creation, and HTTP auth guard. |
-| `MatchmakingGateway` / `MatchmakingService` | Queue events, matchmaking search, database match creation, and gameplay initialization. |
-| `RedisService` | Redis connection and the atomic `findAndClaimMatch` Lua command. |
-| `GameplayGateway` | WebSocket authentication, participant room joins, deployment queueing, per-match tick timers, and room broadcasts. |
-| `GameplayService` | Load player decks, create/store match state, provide participant-checked views, advance the engine, and persist match outcomes. |
-| `backend/src/game/engine/engine.ts` | Game rules and state transitions. It does not depend on NestJS, Socket.IO, or Prisma. |
-| `DbService` | Prisma client lifecycle and PostgreSQL access. |
-| `ActivePlayers` | In-memory mapping of player IDs to active match IDs, used to prevent active players from queueing again. |
+| Component                                   | Responsibility                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `AuthModule`                                | Registration, password verification, JWT creation, and HTTP auth guard.                                                         |
+| `MatchmakingGateway` / `MatchmakingService` | Queue events, matchmaking search, database match creation, and gameplay initialization.                                         |
+| `RedisService`                              | Redis connection and the atomic `findAndClaimMatch` Lua command.                                                                |
+| `GameplayGateway`                           | WebSocket authentication, participant room joins, deployment queueing, per-match tick timers, and room broadcasts.              |
+| `GameplayService`                           | Load player decks, create/store match state, provide participant-checked views, advance the engine, and persist match outcomes. |
+| `backend/src/game/engine/engine.ts`         | Game rules and state transitions. It does not depend on NestJS, Socket.IO, or Prisma.                                           |
+| `DbService`                                 | Prisma client lifecycle and PostgreSQL access.                                                                                  |
+| `ActivePlayers`                             | In-memory mapping of player IDs to active match IDs, used to prevent active players from queueing again.                        |
 
 ## Match lifecycle
 
@@ -194,18 +179,18 @@ sequenceDiagram
 
 Default rules are defined in [`backend/src/game/balance.ts`](./backend/src/game/balance.ts):
 
-| Rule | Default |
-|---|---:|
-| Simulation rate | 10 ticks/second |
-| Match duration | 180 seconds (1,800 ticks) |
-| Starting energy | 5 |
-| Maximum energy | 10 |
-| Energy regeneration | 0.5 per second |
-| Base health | 1,000 |
-| Maximum deployment requests | 3 per player per tick |
-| Board axes | `x` and `y` in inclusive `0..100` |
-| Lane half-width | 20 (valid `y` band 30–70) |
-| Midline | `x = 50` is not deployable |
+| Rule                        |                           Default |
+| --------------------------- | --------------------------------: |
+| Simulation rate             |                   10 ticks/second |
+| Match duration              |         180 seconds (1,800 ticks) |
+| Starting energy             |                                 5 |
+| Maximum energy              |                                10 |
+| Energy regeneration         |                    0.5 per second |
+| Base health                 |                             1,000 |
+| Maximum deployment requests |             3 per player per tick |
+| Board axes                  | `x` and `y` in inclusive `0..100` |
+| Lane half-width             |         20 (valid `y` band 30–70) |
+| Midline                     |        `x = 50` is not deployable |
 
 Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds, the player's deployment zone, and available energy. A deployment must be inside the player's own half — `LEFT` at `x < 50` and `RIGHT` at `x > 50`, with the `x = 50` midline off limits — and within the lane band `y = 50 ± laneHalfWidth`.
 
@@ -217,14 +202,14 @@ The engine requires both players to have matching four-card decks. Registration 
 
 Every card row in the database carries:
 
-| Column | Meaning |
-|---|---|
-| `cost` | Energy required to deploy this unit. |
-| `baseHp` | Unit hit points at level 1. |
-| `baseDamage` | Damage dealt per attack. |
-| `attackSpeed` | Attacks per second. |
-| `movementSpeed` | World units traveled per second. |
-| `range` | Attack range in world units (melee vs. ranged). |
+| Column          | Meaning                                         |
+| --------------- | ----------------------------------------------- |
+| `cost`          | Energy required to deploy this unit.            |
+| `baseHp`        | Unit hit points at level 1.                     |
+| `baseDamage`    | Damage dealt per attack.                        |
+| `attackSpeed`   | Attacks per second.                             |
+| `movementSpeed` | World units traveled per second.                |
+| `range`         | Attack range in world units (melee vs. ranged). |
 
 ## Data model
 
@@ -350,15 +335,15 @@ Because registration grants all card records that exist at registration time, lo
 
 The browser client in `frontend/` is the primary way to experience WarLand.
 
-| Feature | Implementation |
-|---|---|
-| Auth screen | `frontend/src/features/auth/AuthScreen.tsx` — login/register with live validation. |
-| Lobby | `frontend/src/features/lobby/LobbyScreen.tsx` — profile, deck, leaderboard, queue button, connection badge. |
-| Game screen | `frontend/src/features/game/GameScreen.tsx` — PixiJS canvas, HUD, result overlay. |
-| Renderer | `frontend/src/features/game/renderer/` — PixiJS 8 scene graph for bases, units, terrain. |
-| State stores | `frontend/src/store/` — Zustand stores for session, matchmaking, game view, and UI toasts. |
-| Networking | `frontend/src/network/` — typed HTTP client + Socket.IO clients mirroring the backend contracts. |
-| Art assets | `frontend/public/assets/kenney/` — Kenney medieval-RTS sprite pack. |
+| Feature      | Implementation                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Auth screen  | `frontend/src/features/auth/AuthScreen.tsx` — login/register with live validation.                                     |
+| Lobby        | `frontend/src/features/lobby/LobbyScreen.tsx` — profile, deck, leaderboard, queue button, connection badge.            |
+| Game screen  | `frontend/src/features/game/GameScreen.tsx` — Phaser canvas, HUD, connection states, and result overlay.               |
+| Renderer     | `frontend/src/phaser/` — Phaser 4 scenes for bases, units, terrain, HUD, input, particles, audio, and combat feedback. |
+| State stores | `frontend/src/store/` — Zustand stores for session, matchmaking, game view, and UI toasts.                             |
+| Networking   | `frontend/src/network/` — typed HTTP client + Socket.IO clients mirroring the backend contracts.                       |
+| Art assets   | `frontend/public/assets/kenney/` — Kenney medieval-RTS sprite pack.                                                    |
 
 The client mirrors the exact Socket.IO contract documented below, so it is also a reference implementation for building other clients (mobile, desktop, bots).
 
@@ -378,13 +363,13 @@ When both clients find each other, each joins `/gameplay`. The game timer starts
 
 Commands:
 
-| Command | Behavior |
-|---|---|
+| Command                    | Behavior                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `deploy <card-id> <x> <y>` | Request deployment at coordinates from 0 to 100. The engine enforces ownership of the card, deployment zone, and energy. |
-| `status` | Print the latest state received by the client. |
-| `leave` | Leave matchmaking while still searching. It does not cancel an active match. |
-| `help` | Show available commands. |
-| `quit` | Disconnect the terminal client. |
+| `status`                   | Print the latest state received by the client.                                                                           |
+| `leave`                    | Leave matchmaking while still searching. It does not cancel an active match.                                             |
+| `help`                     | Show available commands.                                                                                                 |
+| `quit`                     | Disconnect the terminal client.                                                                                          |
 
 The server acknowledges a queued request with `deploy_queued`, then reports its authoritative outcome as `deploy_result` after a tick. The client’s display is refreshed from `game_state`; the online server, not the terminal, decides game state.
 
@@ -402,17 +387,17 @@ The local demo supports WASD/arrow-key movement, `1`–`4` card selection, `Tab`
 
 ### HTTP endpoints
 
-| Method | Path | Authentication | Purpose |
-|---|---|---|---|
-| `POST` | `/auth/register` | No | Create an account and return a JWT with public player data. |
-| `POST` | `/auth/login` | No | Verify credentials and return a JWT with public player data. |
-| `GET` | `/auth/me` | Bearer JWT | Return the authenticated public player. |
-| `GET` | `/players/me` | Bearer JWT | Return the authenticated player profile and owned deck. |
-| `GET` | `/players/:displayName/:tag` | No | Look up a public player profile. |
-| `GET` | `/players/:displayName/:tag/stats` | No | Look up public player statistics. |
-| `GET` | `/leaderboard?limit=100` | No | Return ranked public player statistics; limit is capped at 100. |
-| `GET` | `/cards` | No | List card definitions. |
-| `GET` | `/me/cards` | Bearer JWT | List cards owned by the authenticated player. |
+| Method | Path                               | Authentication | Purpose                                                         |
+| ------ | ---------------------------------- | -------------- | --------------------------------------------------------------- |
+| `POST` | `/auth/register`                   | No             | Create an account and return a JWT with public player data.     |
+| `POST` | `/auth/login`                      | No             | Verify credentials and return a JWT with public player data.    |
+| `GET`  | `/auth/me`                         | Bearer JWT     | Return the authenticated public player.                         |
+| `GET`  | `/players/me`                      | Bearer JWT     | Return the authenticated player profile and owned deck.         |
+| `GET`  | `/players/:displayName/:tag`       | No             | Look up a public player profile.                                |
+| `GET`  | `/players/:displayName/:tag/stats` | No             | Look up public player statistics.                               |
+| `GET`  | `/leaderboard?limit=100`           | No             | Return ranked public player statistics; limit is capped at 100. |
+| `GET`  | `/cards`                           | No             | List card definitions.                                          |
+| `GET`  | `/me/cards`                        | Bearer JWT     | List cards owned by the authenticated player.                   |
 
 The application uses a global validation pipe with transformation, unknown-field rejection, and whitelisting.
 
@@ -420,30 +405,30 @@ The application uses a global validation pipe with transformation, unknown-field
 
 Connect to the default namespace with `auth: { token: accessToken }`.
 
-| Direction | Event | Payload / behavior |
-|---|---|---|
-| Client → server | `join_queue` | Begin searching as the authenticated player. |
-| Server → client | `queue_joined` | Queue entry acknowledged. |
-| Server → client | `match_found` | `{ matchId, opponentId, opponentName, opponentTag }`. |
-| Client → server | `leave_queue` | Remove the player from the queue. |
-| Server → client | `queue_left` | Queue leave acknowledgement. |
-| Server → client | `match_timeout` | Search expired without a match. |
-| Server → client | `queue_error`, `match_error` | Queue or match setup error. |
+| Direction       | Event                        | Payload / behavior                                    |
+| --------------- | ---------------------------- | ----------------------------------------------------- |
+| Client → server | `join_queue`                 | Begin searching as the authenticated player.          |
+| Server → client | `queue_joined`               | Queue entry acknowledged.                             |
+| Server → client | `match_found`                | `{ matchId, opponentId, opponentName, opponentTag }`. |
+| Client → server | `leave_queue`                | Remove the player from the queue.                     |
+| Server → client | `queue_left`                 | Queue leave acknowledgement.                          |
+| Server → client | `match_timeout`              | Search expired without a match.                       |
+| Server → client | `queue_error`, `match_error` | Queue or match setup error.                           |
 
 ### Gameplay Socket.IO namespace
 
 Connect to `/gameplay` with the same JWT in Socket.IO auth.
 
-| Direction | Event | Payload / behavior |
-|---|---|---|
-| Client → server | `join_game` | `{ matchId }`; verifies match participation, joins the room, returns initial state. |
-| Server → client | `game_started` | `{ matchId, side, state }` where `state` is a client-safe `MatchView`. |
-| Client → server | `deploy` | `{ requestId, cardId, x, y }`; player and match IDs are taken from authenticated socket data. |
-| Server → client | `deploy_queued` | `{ requestId }`; request accepted into the tick queue. |
-| Server → room | `game_state` | Updated `MatchView` after each tick. |
-| Server → room | `deploy_result` | Accepted/rejected result for each processed request. |
-| Server → room | `match_finished` | `{ result }` after the result is persisted. |
-| Server → client/room | `game_error` | Gameplay validation, join, tick, or persistence error. |
+| Direction            | Event            | Payload / behavior                                                                            |
+| -------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
+| Client → server      | `join_game`      | `{ matchId }`; verifies match participation, joins the room, returns initial state.           |
+| Server → client      | `game_started`   | `{ matchId, side, state }` where `state` is a client-safe `MatchView`.                        |
+| Client → server      | `deploy`         | `{ requestId, cardId, x, y }`; player and match IDs are taken from authenticated socket data. |
+| Server → client      | `deploy_queued`  | `{ requestId }`; request accepted into the tick queue.                                        |
+| Server → room        | `game_state`     | Updated `MatchView` after each tick.                                                          |
+| Server → room        | `deploy_result`  | Accepted/rejected result for each processed request.                                          |
+| Server → room        | `match_finished` | `{ result }` after the result is persisted.                                                   |
+| Server → client/room | `game_error`     | Gameplay validation, join, tick, or persistence error.                                        |
 
 The server accepts no more than three queued deployment requests per player per tick. Deploy results include engine-level rejection reasons such as `CARD_NOT_IN_DECK`, `OUTSIDE_DEPLOYMENT_ZONE`, and `INSUFFICIENT_ENERGY`.
 
@@ -451,63 +436,82 @@ The server accepts no more than three queued deployment requests per player per 
 
 Every `MatchView` carries an optional `events` array with the attacks that landed during the most recent tick. It is purely presentational — the engine's damage resolution is unchanged, and clients may ignore it entirely.
 
-| Field | Meaning |
-|---|---|
-| `attackerId` | Attacking unit id (`<matchId>:<spawnSequence>`), or `"BASE"` for a base turret. |
-| `attackerSide` | Owning side of a base turret attack; absent for unit attacks. |
-| `targetId` | Damaged unit id, or `"BASE"` when a base was hit. |
-| `targetSide` | Which base was hit; absent when a unit was hit. |
-| `damage` | Damage of a single attack. |
-| `range` | Attack range of the attacker in world units. Clients use it to tell ranged attacks (`range > 6`) from melee ones. |
-| `tick` | The tick the attack landed on. |
+| Field          | Meaning                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `attackerId`   | Attacking unit id (`<matchId>:<spawnSequence>`), or `"BASE"` for a base turret.                                   |
+| `attackerSide` | Owning side of a base turret attack; absent for unit attacks.                                                     |
+| `targetId`     | Damaged unit id, or `"BASE"` when a base was hit.                                                                 |
+| `targetSide`   | Which base was hit; absent when a unit was hit.                                                                   |
+| `damage`       | Damage of a single attack.                                                                                        |
+| `range`        | Attack range of the attacker in world units. Clients use it to tell ranged attacks (`range > 6`) from melee ones. |
+| `tick`         | The tick the attack landed on.                                                                                    |
 
 Damage is clamped by the engine at zero HP, so the sum of an event's damage can exceed the HP a target actually lost.
 
+## Security and operational model
+
+Authentication and authorization are applied at both transport layers:
+
+- HTTP routes use Bearer JWT authentication where required.
+- The root Socket.IO namespace and `/gameplay` use shared JWT middleware.
+- Gameplay views are returned only to verified match participants.
+- Deployment payloads are validated by the gateway and then validated again by
+  the authoritative engine.
+- Passwords are stored as bcrypt hashes and excluded from public projections.
+- Global HTTP validation transforms DTOs, whitelists expected fields, and
+  rejects unknown fields.
+- Request IDs provide replay handling and conflict detection for deployments.
+
+Before exposing the server beyond local development, configure a strong
+`JWT_SECRET`, restrict `WARLAND_ALLOWED_ORIGINS`, and secure PostgreSQL and
+Redis connections. Rate limiting, token revocation, stale queue cleanup, and
+multi-instance presence are still production hardening work.
+
 ## Configuration
 
-| Variable | Required | Default | Purpose |
-|---|---:|---|---|
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string used by Prisma. |
-| `JWT_SECRET` | Yes | — | Secret used to sign and verify access tokens. Application startup fails if unset. |
-| `REDIS_URL` | No | `redis://localhost:6379` | Redis connection string for matchmaking. |
-| `PORT` | No | `3000` | HTTP and Socket.IO server port. |
-| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*` | Comma-separated allowed origins for HTTP CORS and Socket.IO. |
-| `WARLAND_SERVER_URL` | No | `http://localhost:3000` | Default server URL prompted by the online terminal client. |
-| `NO_COLOR` | No | — | Disable ANSI color output in the local terminal demo when set. |
+| Variable                  |                              Required | Default                  | Purpose                                                                           |
+| ------------------------- | ------------------------------------: | ------------------------ | --------------------------------------------------------------------------------- |
+| `DATABASE_URL`            |                                   Yes | —                        | PostgreSQL connection string used by Prisma.                                      |
+| `JWT_SECRET`              |                                   Yes | —                        | Secret used to sign and verify access tokens. Application startup fails if unset. |
+| `REDIS_URL`               |                                    No | `redis://localhost:6379` | Redis connection string for matchmaking.                                          |
+| `PORT`                    |                                    No | `3000`                   | HTTP and Socket.IO server port.                                                   |
+| `WARLAND_ALLOWED_ORIGINS` | Recommended outside local development | `*`                      | Comma-separated allowed origins for HTTP CORS and Socket.IO.                      |
+| `WARLAND_SERVER_URL`      |                                    No | `http://localhost:3000`  | Default server URL prompted by the online terminal client.                        |
+| `NO_COLOR`                |                                    No | —                        | Disable ANSI color output in the local terminal demo when set.                    |
 
 HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORIGINS` is unset. Configure trusted origins before exposing the server to clients on another host.
 
 ## Development commands
 
-| Command | Purpose |
-|---|---|
-| `npm run start:dev` | Start the NestJS backend in watch mode. |
-| `npm run build` | Compile the NestJS backend. |
-| `npm test` | Run backend Vitest unit tests. |
-| `npm run test:e2e` | Run configured backend end-to-end tests. |
-| `npm run lint` | Run Oxlint on `backend/src/`, `backend/test/`, and `backend/scripts/`. |
-| `npm run loadtest` | Run the Socket.IO load test that plays bot-vs-bot matches to completion. |
-| `npm run game:terminal` | Build and run the local terminal simulation. |
-| `npm run game:terminal:online` | Build and run the online terminal client. |
-| `npm run seed:cards` | Seed card definitions via `prisma db execute`. |
-| `npm run frontend:dev` | Start the Vite dev server for the web client. |
-| `npm run frontend:build` | Build the web client for production. |
-| `npm run frontend:typecheck` | Type-check the web client. |
-| `npm run frontend:test` | Run the web client Vitest tests. |
-| `npx prisma migrate deploy` | Apply committed migrations (run from `backend/`). |
-| `npx prisma studio` | Open Prisma Studio for local data inspection/editing (run from `backend/`). |
+| Command                        | Purpose                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| `npm run start:dev`            | Start the NestJS backend in watch mode.                                     |
+| `npm run build`                | Compile the NestJS backend.                                                 |
+| `npm test`                     | Run backend Vitest unit tests.                                              |
+| `npm run test:e2e`             | Run configured backend end-to-end tests.                                    |
+| `npm run lint`                 | Run Oxlint on `backend/src/`, `backend/test/`, and `backend/scripts/`.      |
+| `npm run loadtest`             | Run the Socket.IO load test that plays bot-vs-bot matches to completion.    |
+| `npm run game:terminal`        | Build and run the local terminal simulation.                                |
+| `npm run game:terminal:online` | Build and run the online terminal client.                                   |
+| `npm run seed:cards`           | Seed card definitions via `prisma db execute`.                              |
+| `npm run frontend:dev`         | Start the Vite dev server for the web client.                               |
+| `npm run frontend:build`       | Build the web client for production.                                        |
+| `npm run frontend:typecheck`   | Type-check the web client.                                                  |
+| `npm run frontend:test`        | Run the web client Vitest tests.                                            |
+| `npx prisma migrate deploy`    | Apply committed migrations (run from `backend/`).                           |
+| `npx prisma studio`            | Open Prisma Studio for local data inspection/editing (run from `backend/`). |
 
 ## Testing
 
 Automated coverage lives in four unit-test files and one e2e spec:
 
-| File | What it covers |
-|---|---|
-| [`backend/src/game/engine/engine.spec.ts`](./backend/src/game/engine/engine.spec.ts) | Engine rules, deployment validation, energy math, and determinism (same input → same output). |
-| [`backend/src/gameplay/gameplay.service.spec.ts`](./backend/src/gameplay/gameplay.service.spec.ts) | Match lifecycle, join deadline handling, and Elo/stat persistence on finish. |
-| [`backend/src/gameplay/gameplay.gateway.spec.ts`](./backend/src/gameplay/gameplay.gateway.spec.ts) | Socket handling, room joins, and per-match tick-timer cleanup on disconnect/finish. |
-| [`backend/src/matchmaking/matchmaking.gateway.spec.ts`](./backend/src/matchmaking/matchmaking.gateway.spec.ts) | Queue join/leave events, including the `queue_left` acknowledgement. |
-| [`backend/test/game-engine.e2e-spec.ts`](./backend/test/game-engine.e2e-spec.ts) | Full-match simulation driven through the real service stack (`npm run test:e2e`). |
+| File                                                                                                           | What it covers                                                                                |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`backend/src/game/engine/engine.spec.ts`](./backend/src/game/engine/engine.spec.ts)                           | Engine rules, deployment validation, energy math, and determinism (same input → same output). |
+| [`backend/src/gameplay/gameplay.service.spec.ts`](./backend/src/gameplay/gameplay.service.spec.ts)             | Match lifecycle, join deadline handling, and Elo/stat persistence on finish.                  |
+| [`backend/src/gameplay/gameplay.gateway.spec.ts`](./backend/src/gameplay/gameplay.gateway.spec.ts)             | Socket handling, room joins, and per-match tick-timer cleanup on disconnect/finish.           |
+| [`backend/src/matchmaking/matchmaking.gateway.spec.ts`](./backend/src/matchmaking/matchmaking.gateway.spec.ts) | Queue join/leave events, including the `queue_left` acknowledgement.                          |
+| [`backend/test/game-engine.e2e-spec.ts`](./backend/test/game-engine.e2e-spec.ts)                               | Full-match simulation driven through the real service stack (`npm run test:e2e`).             |
 
 Run everything:
 
@@ -541,33 +545,33 @@ Run the server (`npm run start:dev`) and ensure the four intended card records e
 - Metrics collected: queue wait, match duration and end reason, peak/mean concurrent matches, deploy accept rate and latency, `game_state` tick drift (p50/p95/max) measured against the 100 ms tick, and error counts.
 - A JSON report is written to `--out` (default `loadtest-report.json`) and command-line thresholds decide the exit code. `--no-thresholds` always exits successfully.
 
-| Option | Default | Purpose |
-|---|---:|---|
-| `--url <url>` | `http://localhost:3000` | Server URL. |
-| `--bots <n>` | `40` | Bot accounts, paired into matches. |
-| `--ramp-ms <n>` | `10000` | Stagger bot starts over this window. |
-| `--duration-ms <n>` | `60000` | Keep starting matches this long after the ramp. |
-| `--grace-ms <n>` | `200000` | Wait for in-flight matches after the deadline. |
-| `--think-ms <n>` | `250` | Minimum delay between deploy attempts. |
-| `--seed <n>` | `1` | Bot username seed; reuse accounts across runs. |
-| `--out <file>` | `loadtest-report.json` | JSON report path. |
-| `--min-accept-rate <n>` | `0.9` | Minimum deploy accept rate. |
-| `--max-tick-p95-drift <n>` | `30` | Maximum `game_state` p95 drift in ms. |
-| `--max-error-rate <n>` | `0.05` | Maximum error rate. |
-| `--min-matches <n>` | `0` | Minimum finished matches. |
+| Option                     |                 Default | Purpose                                         |
+| -------------------------- | ----------------------: | ----------------------------------------------- |
+| `--url <url>`              | `http://localhost:3000` | Server URL.                                     |
+| `--bots <n>`               |                    `40` | Bot accounts, paired into matches.              |
+| `--ramp-ms <n>`            |                 `10000` | Stagger bot starts over this window.            |
+| `--duration-ms <n>`        |                 `60000` | Keep starting matches this long after the ramp. |
+| `--grace-ms <n>`           |                `200000` | Wait for in-flight matches after the deadline.  |
+| `--think-ms <n>`           |                   `250` | Minimum delay between deploy attempts.          |
+| `--seed <n>`               |                     `1` | Bot username seed; reuse accounts across runs.  |
+| `--out <file>`             |  `loadtest-report.json` | JSON report path.                               |
+| `--min-accept-rate <n>`    |                   `0.9` | Minimum deploy accept rate.                     |
+| `--max-tick-p95-drift <n>` |                    `30` | Maximum `game_state` p95 drift in ms.           |
+| `--max-error-rate <n>`     |                  `0.05` | Maximum error rate.                             |
+| `--min-matches <n>`        |                     `0` | Minimum finished matches.                       |
 
 ### Results
 
 All runs below used the default thresholds (`acceptRate ≥ 0.9`, tick p95 drift ≤ 30 ms, error rate ≤ 5%) on a single local server process. Every match in every run ended by `BASE_DESTROYED` — no timeouts, aborts, or unfinished matches.
 
-| Bots | Concurrent matches (peak) | Matches/min | Deploy accept rate | Tick drift p50 / p95 | Errors | Result |
-|---:|---:|---:|---:|---:|---:|:--:|
-| 4 | 4 | 3.7 | 100% | 9 / 15 ms | 0 | PASS |
-| 40 | 40 | 38.6 | 100% | 9 / 15 ms | 0 | PASS |
-| 100 | 100 | 75.5 | 100% | 9 / 15 ms | 0 | PASS |
-| 250 | 250 | 209.2 | 100% | 9 / 17 ms | 0 | PASS |
-| 500 | 500 | 391.1 | 100% | 9 / 36 ms | 0 | FAIL (tick drift) |
-| 1000 | 1000 | 797.3 | 100% | 9 / 34 ms | 0 | FAIL (tick drift) |
+| Bots | Concurrent matches (peak) | Matches/min | Deploy accept rate | Tick drift p50 / p95 | Errors |      Result       |
+| ---: | ------------------------: | ----------: | -----------------: | -------------------: | -----: | :---------------: |
+|    4 |                         4 |         3.7 |               100% |            9 / 15 ms |      0 |       PASS        |
+|   40 |                        40 |        38.6 |               100% |            9 / 15 ms |      0 |       PASS        |
+|  100 |                       100 |        75.5 |               100% |            9 / 15 ms |      0 |       PASS        |
+|  250 |                       250 |       209.2 |               100% |            9 / 17 ms |      0 |       PASS        |
+|  500 |                       500 |       391.1 |               100% |            9 / 36 ms |      0 | FAIL (tick drift) |
+| 1000 |                      1000 |       797.3 |               100% |            9 / 34 ms |      0 | FAIL (tick drift) |
 
 Observations:
 
@@ -610,8 +614,35 @@ This is expected for the current single-process in-memory design. If higher conc
 - **Card upgrades are applied:** card level is stored, passed into snapshots, and scales HP and damage by 5% per level above 1 (capped at level 10).
 - **The bundled web client is thin:** the React client in `frontend/` covers auth, lobby, and live board rendering, but no mobile client ships. The documented HTTP and Socket.IO contracts are client-agnostic, so additional clients can be built against the same interfaces.
 - **Persistence failure needs operational follow-up:** final result saves are retried three times. If all attempts fail, the timer has stopped and an error is emitted; there is no durable background retry/reconciliation job.
-- **No dedicated gameplay integration tests yet:** build success and manual terminal play do not replace test coverage for matchmaking, disconnects, tick timing, and result persistence.
+- **Browser-level coverage is limited:** backend engine, gateway, and service tests plus frontend store/format tests exist, but full responsive screen and Phaser visual regression coverage is still needed.
 - **CORS defaults to permissive for development:** explicitly configure `WARLAND_ALLOWED_ORIGINS` for client deployments on another host.
+
+## Roadmap
+
+The current prototype is a strong foundation for the following product and
+engineering slices:
+
+### Product progression
+
+- Unlockable units and a real deck builder.
+- Quests, achievements, seasonal rewards, and competitive leagues.
+- Rematch flow and practice-vs-bot mode.
+- Match history, battle statistics, and richer result summaries.
+
+### Production readiness
+
+- Startup reconciliation for abandoned `PLAYING` matches.
+- Periodic cleanup for stale Redis matchmaking entries.
+- A shared match-state/timer strategy or an explicit single-instance limit.
+- Generated or shared REST and Socket.IO contract types.
+- Rate limiting, session revocation, and stricter deployment CORS defaults.
+
+### Scale and client quality
+
+- One shared server tick loop instead of one interval per match.
+- Delta or compressed game-state broadcasts.
+- Lazy-load Phaser so auth and lobby load faster.
+- Browser responsive tests and visual regression screenshots.
 
 ## Repository map
 
@@ -648,7 +679,8 @@ frontend/
     features/
       auth/        Auth screen
       lobby/       Lobby screen
-      game/        Game screen, HUD components, PixiJS renderer, result overlay
+      game/        Game screen, HUD controls, result overlay, and game formatting
+    phaser/        Phaser 4 battlefield, HUD, units, VFX, audio, and scenes
     network/       Typed HTTP + Socket.IO clients
     store/         Zustand stores (session, matchmaking, game, ui)
     styles/        Global styles
@@ -657,21 +689,21 @@ frontend/
     assets/kenney/ Medieval RTS sprite pack and icons
   index.html       Vite entry HTML
 docs/
-  screenshots/     UI screenshots referenced by this README
+  VISUAL-OVERHAUL.md  Visual redesign specification and backlog
 ```
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `JWT_SECRET` startup failure | Env var unset | Add `JWT_SECRET` to `backend/.env` and restart. |
-| Registration rejects every request | No card rows exist | Insert the four intended cards (via Prisma Studio) before registering. |
-| `match_found` never fires | Only one player queued | Queue a second account, or run a second terminal/online client. |
-| `join_game` returns `game_error` | Socket not a match participant | Ensure the same JWT used for matchmaking is sent to `/gameplay`. |
-| Deploys rejected with `INSUFFICIENT_ENERGY` | Energy too low for card cost | Wait for regeneration or pick a cheaper card. |
-| Deploys rejected with `OUTSIDE_DEPLOYMENT_ZONE` | Wrong half or `y` out of band | Deploy only in your half (`x<50` LEFT, `x>50` RIGHT) with `y` in 30–70. |
-| CORS/Socket.IO blocked in browser | Origin not allowed | Set `WARLAND_ALLOWED_ORIGINS` to your frontend origin. |
-| Prisma client errors after pull | Generated client out of date | Run `npx prisma generate` in `backend/`. |
+| Symptom                                         | Likely cause                   | Fix                                                                     |
+| ----------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `JWT_SECRET` startup failure                    | Env var unset                  | Add `JWT_SECRET` to `backend/.env` and restart.                         |
+| Registration rejects every request              | No card rows exist             | Insert the four intended cards (via Prisma Studio) before registering.  |
+| `match_found` never fires                       | Only one player queued         | Queue a second account, or run a second terminal/online client.         |
+| `join_game` returns `game_error`                | Socket not a match participant | Ensure the same JWT used for matchmaking is sent to `/gameplay`.        |
+| Deploys rejected with `INSUFFICIENT_ENERGY`     | Energy too low for card cost   | Wait for regeneration or pick a cheaper card.                           |
+| Deploys rejected with `OUTSIDE_DEPLOYMENT_ZONE` | Wrong half or `y` out of band  | Deploy only in your half (`x<50` LEFT, `x>50` RIGHT) with `y` in 30–70. |
+| CORS/Socket.IO blocked in browser               | Origin not allowed             | Set `WARLAND_ALLOWED_ORIGINS` to your frontend origin.                  |
+| Prisma client errors after pull                 | Generated client out of date   | Run `npx prisma generate` in `backend/`.                                |
 
 ## License
 

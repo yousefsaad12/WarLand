@@ -1,0 +1,956 @@
+WARLAND PROJECT REPORT
+======================
+
+Report date: 2026-10-23
+Repository: E:\WarLand
+Project type: Server-authoritative real-time multiplayer lane-battle prototype
+
+This report is an engineering inventory of the repository as it exists at the
+report date. It describes the intended product, the implemented architecture,
+the runtime flow, data model, client and server contracts, tests, scripts,
+assets, operational requirements, discrepancies, risks, and recommended next
+steps.
+
+
+1. EXECUTIVE SUMMARY
+--------------------
+
+WarLand is a two-player tactical lane-battle game. Players create accounts,
+receive a starter deck, enter rating-based matchmaking, connect to a live
+match, deploy units represented by cards, and fight until a base is destroyed
+or the match reaches its time limit.
+
+The server is authoritative. The browser or terminal client sends player intent
+and renders server snapshots. The pure game engine owns positions, energy,
+deployment validation, movement, attacks, base damage, replay protection, and
+match completion.
+
+The backend is a NestJS application using:
+- PostgreSQL through Prisma for durable accounts, cards, matches, ratings,
+  player-card progression, and match results.
+- Redis through ioredis for matchmaking queue storage and atomic opponent
+  claiming.
+- Socket.IO for matchmaking and gameplay real-time communication.
+- JWT and bcryptjs for authentication.
+
+The frontend is a Vite application using:
+- React 19 for authentication, lobby, overlays, and application routing.
+- Zustand for session, matchmaking, gameplay, and UI state.
+- Phaser 4 for the actual battlefield renderer, animation, HUD, units, bases,
+  terrain, effects, and input.
+- Tailwind CSS 4 plus project CSS for the shell and lobby.
+
+The project is explicitly prototype-oriented. Active match state, deployment
+queues, timers, and presence are held in process memory. The current design is
+appropriate for local development and single-server testing, but it is not yet
+resilient multi-instance production infrastructure.
+
+
+2. REPOSITORY STRUCTURE
+-----------------------
+
+Root files:
+- package.json: npm workspace definition and commands forwarded to backend or
+  frontend.
+- README.md: product overview, setup guide, contracts, balance notes, load-test
+  results, known limitations, and repository map.
+- PROJECT_REPORT.txt: this full engineering report.
+
+Backend:
+- backend/package.json: NestJS, Prisma, Redis, Socket.IO, Vitest, Oxlint, and
+  backend scripts.
+- backend/nest-cli.json: Nest build configuration.
+- backend/tsconfig.json: backend TypeScript configuration.
+- backend/tsconfig.build.json: build-specific TypeScript configuration.
+- backend/oxlint.json: Oxlint configuration.
+- backend/prisma.config.ts: Prisma configuration.
+- backend/prisma/schema.prisma: PostgreSQL data model.
+- backend/prisma/migrations: schema migration history.
+- backend/scripts/seed-cards.sql: starter card seed data.
+- backend/scripts/loadtest.mjs: black-box matchmaking and gameplay load test.
+- backend/scripts/loadtest-report-*.json: saved load-test reports.
+- backend/src/main.ts: Nest application bootstrap.
+- backend/src/app.module.ts: root dependency-injection module.
+- backend/src/auth: registration, login, JWT, HTTP guard, and DTOs.
+- backend/src/players: player profile, public player lookup, statistics, and
+  leaderboard endpoints.
+- backend/src/cards: card catalog and owned-card endpoints plus card seeding.
+- backend/src/matchmaking: queue gateway, matchmaking service, and active-player
+  tracking.
+- backend/src/gameplay: gameplay gateway, gameplay service, and gameplay tests.
+- backend/src/game: balance constants and the framework-independent engine.
+- backend/src/prisma: Prisma client module and database service.
+- backend/src/redis: Redis module, Redis service, and Lua matchmaking script.
+- backend/src/common/ws: WebSocket authentication and CORS helpers.
+- backend/src/dev: local simulation and online terminal client.
+- backend/test: end-to-end engine simulation.
+
+Frontend:
+- frontend/package.json: Vite, React, Phaser, Zustand, Vitest, and commands.
+- frontend/index.html: Vite HTML entry.
+- frontend/vite.config.ts: Vite root, React plugin, Tailwind plugin, alias, and
+  development port.
+- frontend/vitest.config.ts: frontend test setup.
+- frontend/src/main.tsx: React entry point.
+- frontend/src/app/App.tsx: session restoration and screen selection.
+- frontend/src/features/auth: login and registration screen.
+- frontend/src/features/lobby: commander hub, deck, leaderboard, and queue UI.
+- frontend/src/features/game: gameplay screen, result overlay, HUD controls,
+  game formatting, and renderer host.
+- frontend/src/components: shared Button, CardArt, Icon, Panel, and Toasts.
+- frontend/src/network: HTTP client, auth/player APIs, Socket.IO setup, config,
+  and frontend protocol types.
+- frontend/src/store: Zustand stores for session, matchmaking, gameplay, and UI.
+- frontend/src/phaser: Phaser bootstrap, scenes, coordinates, arena, units,
+  HUD, audio, themes, particles, and visual effects.
+- frontend/src/styles/index.css: Tailwind import, font definitions, theme
+  variables, shell styles, panels, buttons, lobby responsiveness, and motion.
+- frontend/public/assets: card art, fonts, Kenney assets, unit sprites, arena
+  media, and UI art.
+
+Documentation and visual material:
+- docs/VISUAL-OVERHAUL.md: visual redesign specification and proposed backlog.
+- docs/screenshots: README screenshots and visual references.
+- frontend/arena-preview.html and frontend/src/arena-preview.tsx: arena preview
+  entry used for renderer inspection.
+
+
+3. PRODUCT FEATURES
+-------------------
+
+Authentication:
+- Registration accepts username, display name, and password.
+- Passwords are bcrypt-hashed.
+- Registration creates a player and assigns available cards in one transaction.
+- A four-digit tag is generated for display-name identity.
+- Login returns a seven-day JWT access token.
+- The client restores the session from local storage and calls the server to
+  validate it.
+
+Lobby:
+- Shows player display name and tag.
+- Shows rating, level, wins, and losses.
+- Shows owned deck cards with art, level, XP, and progression bar.
+- Opens a card inspection modal with card combat statistics.
+- Shows a global leaderboard.
+- Shows matchmaking connection status and search elapsed time.
+- Provides audio preference control and logout.
+
+Matchmaking:
+- Player joins a JWT-authenticated root Socket.IO namespace.
+- Matchmaking score combines rating, average card level, and player level.
+- Players are placed in a Redis sorted set.
+- Search range expands as the wait time increases.
+- A Lua script atomically finds and claims a compatible opponent.
+- A five-minute search timeout returns a timeout event.
+- Active-player tracking prevents players already in a match from queueing again.
+
+Gameplay:
+- Match is created after two players are paired.
+- Both clients connect to the /gameplay namespace and join by match ID.
+- The match starts when both participants have joined.
+- A server timer advances the engine at 10 ticks per second.
+- Players choose cards and submit deployment coordinates.
+- Deployments are queued until the next tick.
+- The server validates card ownership, coordinates, deployment zone, energy,
+  request IDs, and per-tick deployment limits.
+- Units move, attack units, attack bases, and can be removed when defeated.
+- Base destruction ends the match immediately.
+- A time-limit draw ends a match after 180 seconds.
+- End-of-match rewards update rating, wins/losses, and card XP.
+
+Visual client:
+- Authentication, lobby, game, loading, error, and result states are present.
+- Phaser renders a landscape-oriented tactical arena.
+- Terrain, river, bridge, bases, towers, banners, crystals, torches, shadows,
+  units, health bars, projectiles, particles, damage numbers, and impact effects
+  are represented in the Phaser layer.
+- Motion and audio preferences can be toggled.
+- The current lobby has responsive layouts, staggered card entry motion, and
+  responsive short-screen rules.
+
+Developer tools:
+- Local terminal simulation avoids database and Redis for fast engine iteration.
+- Online terminal client connects to the real Socket.IO server.
+- Load-test client registers real accounts, queues bots, plays matches, and
+  records latency and throughput information.
+- Card seed SQL and runtime card upsert logic support local setup.
+
+
+4. SYSTEM ARCHITECTURE
+----------------------
+
+High-level request and match flow:
+
+1. Browser loads the React app.
+2. App restores the JWT from local storage.
+3. Auth endpoints validate or reject the session.
+4. Lobby fetches player profile and leaderboard over HTTP.
+5. Lobby connects to the root Socket.IO namespace.
+6. Player sends join_queue.
+7. Matchmaking stores the player in Redis.
+8. Redis Lua code atomically claims an opponent.
+9. Matchmaking creates Match and MatchPlayer rows in PostgreSQL.
+10. GameplayService loads both player decks and creates an in-memory MatchState.
+11. Server emits match_found to both clients.
+12. Clients connect to /gameplay and send join_game.
+13. GameplayGateway verifies participant ownership and joins the room.
+14. When both players are present, a timer advances the match every 100 ms.
+15. Deployment commands are queued by match and processed by the engine.
+16. The gateway broadcasts game_state and deployment outcomes.
+17. Finished matches are saved transactionally and rewards are emitted.
+18. Gameplay memory, timers, commands, and active-player entries are released.
+
+Main backend dependency relationships:
+- AppModule imports PrismaModule, AuthModule, PlayerModule, CardModule,
+  MatchmakingModule, and RedisModule.
+- MatchmakingService depends on DbService, RedisService, ActivePlayers, and
+  GameplayService.
+- GameplayGateway depends on GameplayService and JwtService.
+- GameplayService depends on DbService and ActivePlayers.
+- AuthService depends on DbService and JwtService.
+- Gateways use shared WebSocket JWT middleware.
+- Game engine has no NestJS, Socket.IO, Prisma, Redis, or browser dependency.
+
+Main frontend dependency relationships:
+- App selects AuthScreen, LobbyScreen, or GameScreen based on uiStore.
+- sessionStore owns JWT and current player.
+- matchmakingStore owns root namespace connection, queue status, match found,
+  and matchmaking errors.
+- gameStore owns gameplay socket, MatchView, deployments, feedback, and rewards.
+- GameScreen mounts GameCanvas and result/error overlays.
+- GameCanvas creates Phaser and pushes Zustand state into BattleScene.
+- BattleScene coordinates ArenaView, UnitManager, MatchHud, and VfxManager.
+- frontend/src/network/protocol.ts mirrors serialized backend contracts without
+  importing backend-only code.
+
+
+5. BACKEND DETAILS
+------------------
+
+5.1 Bootstrap and global behavior
+
+backend/src/main.ts:
+- Loads dotenv configuration.
+- Creates the Nest application.
+- Enables CORS using getWebSocketCorsOrigin().
+- Enables shutdown hooks.
+- Installs a global ValidationPipe.
+- Enables transform, whitelist, and forbidNonWhitelisted behavior.
+- Listens on PORT or port 3000.
+
+The root AppController/AppService still contains the scaffolded Hello World
+endpoint. It is not part of the game API and could be removed or documented as
+a health check.
+
+5.2 Authentication
+
+The auth module contains:
+- AuthController for register, login, and current-player lookup.
+- AuthService for password hashing, credential verification, public player
+  projection, tags, and JWT creation.
+- AuthGuard for HTTP Bearer authentication.
+- DTOs for input validation.
+
+Security behavior:
+- Password hashes are never returned in public projections.
+- bcryptjs uses cost 12 during registration.
+- Invalid credentials return a generic invalid username or password message.
+- JWT payload contains player ID in sub and username.
+- JWT expiry is configured in AuthModule.
+- Global validation rejects unexpected input fields.
+
+Important operational assumption:
+- JWT secret configuration must be present and must not use a development or
+  weak fallback in production. Verify auth.module.ts and deployment secrets
+  before deploying publicly.
+
+5.3 Player and card APIs
+
+Player responsibilities:
+- Return current authenticated player profile.
+- Return public player by display name and tag.
+- Return player statistics and calculated win rate.
+- Return leaderboard rows ordered by rating.
+- Return owned cards with card definitions and XP progression information.
+
+Card responsibilities:
+- Return the public card catalog.
+- Return the authenticated player's deck.
+- Seed or upsert starter definitions when required.
+
+The engine expects matching four-card decks. Registration grants the cards that
+exist in the Card table, so seed data should be installed before creating test
+accounts.
+
+5.4 Matchmaking
+
+MatchmakingGateway handles:
+- join_queue
+- leave_queue
+- disconnect cleanup
+
+MatchmakingService handles:
+- Player lookup and matchmaking score calculation.
+- Redis sorted-set insertion and metadata.
+- Polling every two seconds.
+- Search ranges of 20, 60, 140, then 300 score points based on elapsed time.
+- Opponent claim result handling.
+- Match creation and gameplay initialization.
+- Socket connectivity checks.
+- Five-minute timeout.
+- Cleanup on cancellation or errors.
+
+The score is:
+  rating + average card level * 20 + player level * 5
+
+The queue data is split across:
+- matchmaking_queue sorted set: score to player ID.
+- matchmaking_meta:<playerId> hash: joinedAt and socketId.
+
+The atomic Redis operation is implemented in backend/src/redis/lua/match.lua
+and registered by RedisService as findAndClaimMatch.
+
+5.5 Gameplay service and gateway
+
+GameplayService owns:
+- In-memory matchStates map.
+- Match join deadlines.
+- Joined-match tracking.
+- Active-player cleanup.
+- Deck loading and level-based stat scaling.
+- Match view authorization.
+- Tick advancement delegation to the engine.
+- Result persistence, Elo rating, wins/losses, and card XP rewards.
+- Abandoned-match handling when the join deadline expires.
+
+GameplayGateway owns:
+- /gameplay namespace authentication.
+- join_game validation and room membership.
+- deploy payload validation.
+- Three queued deployments per player per tick at gateway level.
+- Per-match interval timers.
+- game_state, deploy_result, match_finished, and game_error events.
+- Retry of result persistence up to three attempts.
+- Timer and command cleanup.
+
+A match has a 30-second join deadline. If both clients do not join in time,
+the database match is marked finished, clients are notified, and memory is
+released.
+
+5.6 Pure game engine
+
+The engine is in backend/src/game/engine and exposes pure functions and types.
+Important types include:
+- GameRules
+- CardSnapshot
+- PlayerSetup
+- PlayerState
+- UnitState
+- MatchState
+- MatchView
+- DeployCommand
+- DeployResult
+- AttackEvent
+- MatchResult
+
+Important functions include:
+- createMatchState
+- advanceMatch
+- cancelMatch
+- toMatchView
+- deploy validation and command processing helpers
+- movement and attack resolution helpers
+- match completion helpers
+
+Default rules in balance.ts:
+- 10 ticks per second.
+- 1,800 maximum ticks, equal to 180 seconds.
+- Starting energy: 500 hundredths, equal to 5.
+- Maximum energy: 1,000 hundredths, equal to 10.
+- Regeneration: 5 hundredths per tick, equal to 0.5 per second.
+- Base HP: 1,000.
+- Base turret damage: 8.
+- Base turret attack speed: 1.
+- Base turret range: 14.
+- Lane half width: 20, so legal y is 30 through 70.
+- Unit separation: 1.5 map units.
+- Request replay retention: 100 ticks.
+
+Deployment rules:
+- Coordinates must be finite and inside the map.
+- Player must own the requested card.
+- LEFT deploys on x less than 50.
+- RIGHT deploys on x greater than 50.
+- The x=50 midline is not deployable.
+- y must be inside the lane band.
+- Energy must be sufficient.
+- Request IDs support replay responses and conflict detection.
+
+Card progression:
+- Maximum card level is 10.
+- XP cost starts at 60 and increases by 40 per level step.
+- Win gives 60 XP, draw gives 25 XP, loss gives 15 XP.
+- Each level above 1 adds 5 percent HP and damage, capped at level 10.
+- Level scaling is rounded to an integer.
+
+Starter cards:
+- Knight: cost 3, HP 180, damage 14, attack speed 1, movement 6, range 2.
+- Archer: cost 4, HP 85, damage 8, attack speed 1.25, movement 5, range 11.
+- Guard: cost 4, HP 250, damage 10, attack speed 0.8, movement 4, range 2.
+- Scout: cost 2, HP 70, damage 4, attack speed 1.5, movement 10, range 2.
+
+
+6. DATABASE MODEL
+-----------------
+
+The Prisma schema contains five models and one enum.
+
+Player:
+- id: UUID primary key.
+- username: unique login name.
+- displayName and tag: public identity.
+- passwordHash: private credential hash.
+- rating: integer default 1000.
+- level: integer default 1.
+- wins and losses: integer counters.
+- createdAt and updatedAt timestamps.
+- playerCards and matchPlayers relations.
+- Unique composite identity on displayName and tag.
+- Rating index.
+
+Card:
+- id: UUID primary key.
+- name: unique card name.
+- cost, baseHp, baseDamage, attackSpeed, movementSpeed, range.
+- createdAt and updatedAt.
+- PlayerCard relation.
+
+PlayerCard:
+- id: UUID primary key.
+- playerId and cardId foreign keys.
+- level and exp progression fields.
+- Unique player/card pair.
+- Cascades when player or card is deleted.
+
+Match:
+- id: UUID primary key.
+- status: PLAYING or FINISHED.
+- startedAt, endedAt, and createdAt timestamps.
+- MatchPlayer relation.
+- Status and createdAt indexes.
+
+MatchPlayer:
+- Composite primary key of matchId and playerId.
+- isWinner flag.
+- Foreign keys to Match and Player.
+- Indexes on playerId and matchId/isWinner.
+
+Persistence boundary:
+- Accounts, cards, owned cards, match rows, winners, ratings, win/loss
+  counters, and card XP are persisted.
+- Live unit state, timers, deployment queues, request ledger, and attack event
+  history are not persisted.
+
+Migration history:
+- 20260914123613_init: initial player, card, match, and relation model.
+- 20260925122911_update: match lifecycle simplification.
+- 20260925123551_update: required match start timestamp.
+- 20261017125633_add_player_card_exp: player card XP progression.
+
+
+7. HTTP API CONTRACT
+--------------------
+
+The implemented REST surface is:
+
+POST /auth/register
+- Creates a player, assigns available starter cards, and returns token plus
+  public player.
+
+POST /auth/login
+- Verifies username/password and returns token plus public player.
+
+GET /auth/me
+- Authenticated current player lookup.
+
+GET /players/me
+- Authenticated profile including deck and progression.
+
+GET /players/:displayName/:tag
+- Public player profile lookup.
+
+GET /players/:displayName/:tag/stats
+- Public player statistics.
+
+GET /leaderboard?limit=100
+- Ranked player list with a bounded or validated limit according to controller
+  implementation.
+
+GET /cards
+- Public card catalog.
+
+GET /me/cards
+- Authenticated owned cards.
+
+Authentication:
+- Protected endpoints require Authorization: Bearer <JWT>.
+- DTO validation is global and rejects unknown fields.
+
+The frontend HTTP layer is in frontend/src/network/http.ts and the API-specific
+helpers are in authApi.ts and playerApi.ts.
+
+
+8. SOCKET.IO CONTRACT
+---------------------
+
+Authentication middleware accepts a token from the Socket.IO handshake auth,
+headers, or query token according to ws-auth.middleware.ts.
+
+Root namespace, handled by MatchmakingGateway:
+
+Client events:
+- join_queue
+- leave_queue
+
+Server events:
+- queue_joined { status: searching }
+- queue_left { status: cancelled }
+- match_found { matchId, opponentId, opponentName, opponentTag }
+- match_timeout { message }
+- queue_error { message }
+- match_error { message }
+
+Gameplay namespace /gameplay, handled by GameplayGateway:
+
+Client events:
+- join_game { matchId }
+- deploy { requestId, cardId, x, y }
+
+Server events:
+- game_started { matchId, side, state }
+- game_state MatchView
+- deploy_queued { requestId }
+- deploy_result accepted, rejected, or conflict payload
+- match_finished { result, rewards }
+- game_error { message }
+
+The frontend mirrors these payloads in frontend/src/network/protocol.ts. The
+protocol file intentionally avoids importing backend engine code, preventing a
+browser build dependency on backend-only packages.
+
+
+9. FRONTEND DETAILS
+-------------------
+
+9.1 Application lifecycle
+
+frontend/src/main.tsx mounts React and imports global styles.
+App.tsx:
+- Restores session on boot.
+- Shows a loading screen while restoring.
+- Forces anonymous users to auth.
+- Moves authenticated users from auth to lobby.
+- Renders auth, lobby, or game screen based on uiStore.
+- Renders Toasts globally.
+
+9.2 Authentication screen
+
+AuthScreen provides:
+- Login/register mode toggle.
+- Form state and client-side validation.
+- Error feedback and loading state.
+- Auth API calls.
+- Session store update on success.
+
+9.3 Lobby screen
+
+LobbyScreen provides:
+- Profile fetch and leaderboard fetch.
+- Matchmaking Socket.IO connection.
+- Queue search timer.
+- Match transition into game screen.
+- Profile and card display.
+- Card inspection modal.
+- Responsive two-column-to-stacked layout.
+- Mobile header behavior and short-height behavior.
+- Card stagger animation and reduced-motion handling.
+
+Shared visual components:
+- Button.tsx: primary, secondary, danger, and ghost variants with loading.
+- Panel.tsx: framed dark panel surface.
+- CardArt.tsx: SVG fallback/card image rendering, role badge, accents, and
+  decorative frame.
+- Icon.tsx: icon selection.
+- Toasts.tsx: global notifications.
+
+9.4 Gameplay screen
+
+GameScreen provides:
+- GameCanvas mounting.
+- Audio and motion controls.
+- Waiting/deploying overlay.
+- Connection-lost and reconnecting overlay.
+- Result overlay and return-to-lobby behavior.
+
+The React layer does not own the battlefield drawing. GameCanvas creates and
+destroys Phaser and forwards Zustand state into the active BattleScene.
+
+9.5 Zustand stores
+
+sessionStore:
+- JWT persistence and restore.
+- Authenticated player state.
+- Login/register/logout lifecycle.
+
+matchmakingStore:
+- Root Socket.IO connection.
+- Connection status.
+- Queue status.
+- Match found payload.
+- Queue and matchmaking errors.
+
+ gameStore:
+- Gameplay connection.
+- Match view and player side.
+- Selected card.
+- Card ranges/catalog.
+- Pending deployments.
+- Feedback, errors, result, and rewards.
+- Deployment actions.
+
+uiStore:
+- Current screen.
+- Toast messages.
+- Audio and reduced-motion preference state.
+
+9.6 Phaser renderer
+
+Phaser bootstrap:
+- phaser/game.ts creates Phaser.AUTO with RESIZE scaling.
+- BootScene loads Kenney terrain, towers, particles, icons, card art, and unit
+  sheets, then creates animations.
+- BattleScene owns input, arena, units, HUD, effects, and synchronized state.
+- GameCanvas resizes Phaser with the host element and subscribes to stores.
+
+ArenaView:
+- Computes a landscape map layout from screen dimensions.
+- Renders table, terrain, legal lane, river, bridge, foliage, lighting,
+  vignette, bases, keep, flanking towers, banners, torches, HP bar, crystals,
+  and damage-state effects.
+- Animates water, banners, flames, and base crystals.
+- Supports base pulses and destruction visuals.
+
+UnitManager:
+- Creates unit containers with shadows, team rings, sprites, and HP bars.
+- Syncs units to authoritative snapshots.
+- Animates spawning, movement, idle bob, attacking, damage, death, and effects.
+- Uses attack range to distinguish melee feedback from ranged projectiles.
+
+MatchHud:
+- Renders match timer, base health, energy, card hand, selected card, and
+  deployment feedback.
+
+VfxManager:
+- Creates reusable particle emitters for hit bursts, dust, death, embers,
+  ghost effects, deployment rings, projectile trails, base fire, shimmer, and
+  ambient particles.
+
+Coordinates:
+- Map space is 0..100 in both axes.
+- Visible renderer is cropped around y=30..70 with padding.
+- LEFT deploy zone is x<50 and RIGHT deploy zone is x>50.
+- Phaser input ignores the bottom HUD region on small screens.
+
+
+10. ASSETS AND VISUAL SYSTEM
+----------------------------
+
+Assets are under frontend/public/assets and include:
+- cards: card artwork.
+- fonts: local fonts.
+- kenney/medieval-rts: terrain, keep, and tower art.
+- kenney/particle-pack: sparks, slash, circles, stars, light, and muzzle art.
+- kenney/board-game-icons: weapon and shield icons.
+- units and units-neo: unit sprites and fallbacks.
+- arena and ui: supporting visual assets.
+
+BootScene includes fallback card loading. CardArt also falls back from card PNG
+to unit art and then to a procedural SVG glyph.
+
+Visual style:
+- Dark war-table background.
+- Gold accent for primary actions and progression.
+- Team blue and red accents.
+- Glass/dark framed panels.
+- Kenney and Liberated Pixel Cup-style game art.
+- Motion effects for deployment, attacks, units, water, banners, flames, and
+  crystals.
+
+Documentation drift:
+- README sections describe the web client as PixiJS and refer to PixiJS
+  rendering. The implementation currently imports and creates Phaser 4 in
+  frontend/src/phaser/game.ts.
+- docs/VISUAL-OVERHAUL.md describes several old Pixi-style files and remains a
+  proposal/spec. It should be updated or marked as historical after visual work
+  is complete.
+
+
+11. TESTING AND QUALITY CHECKS
+------------------------------
+
+Backend test configuration:
+- backend/vitest.config.ts for unit tests.
+- backend/vitest.config.e2e.ts for e2e tests.
+- Vitest run, watch, coverage, and debug scripts.
+
+Backend test areas:
+- Game engine rules and deterministic simulation.
+- Gameplay service lifecycle, join deadline, persistence, Elo, and rewards.
+- Gameplay gateway socket handling and timer cleanup.
+- Matchmaking gateway behavior.
+- Full engine e2e simulation.
+
+Frontend test areas:
+- frontend/src/store/gameStore.test.ts.
+- frontend/src/features/game/format.test.ts.
+- Vitest with jsdom and Testing Library dependencies.
+
+Available validation commands:
+- npm run frontend:typecheck
+- npm run frontend:build
+- npm run frontend:test
+- npm run test
+- npm run test:e2e
+- npm run lint
+- npm run build
+
+The current frontend production build succeeds. The bundle emits a known large
+chunk warning because Phaser and related game code are bundled together. This is
+not a compile failure, but code splitting would improve first-load performance.
+
+
+12. DEVELOPMENT AND OPERATIONS
+------------------------------
+
+Prerequisites:
+- Node.js compatible with the package lock and current dependencies.
+- PostgreSQL reachable through DATABASE_URL.
+- Redis reachable through REDIS_URL, defaulting to redis://localhost:6379.
+- A JWT secret configured for the backend.
+
+Typical setup:
+1. npm ci
+2. Configure backend environment variables.
+3. npx prisma generate in backend.
+4. npx prisma migrate deploy in backend.
+5. npm run seed:cards in backend or rely on runtime card upsert behavior.
+6. Start backend with npm run start:dev.
+7. Start frontend with npm run frontend:dev.
+
+Root scripts:
+- npm run build: backend production build.
+- npm run dev: frontend development server.
+- npm run start: backend Nest start.
+- npm run start:dev: backend watch mode.
+- npm run start:prod: backend dist start.
+- npm run lint: backend Oxlint.
+- npm run format: backend Prettier.
+- npm run test: backend Vitest.
+- npm run test:e2e: backend e2e Vitest.
+- npm run loadtest: backend load test.
+- npm run seed:cards: card SQL seed.
+- npm run game:terminal: local terminal simulation.
+- npm run game:terminal:online: online terminal Socket.IO client.
+- npm run frontend:dev: frontend Vite server.
+- npm run frontend:build: frontend production bundle.
+- npm run frontend:preview: frontend preview server.
+- npm run frontend:typecheck: frontend TypeScript check.
+- npm run frontend:test: frontend Vitest.
+
+Environment/configuration items to verify:
+- DATABASE_URL.
+- REDIS_URL.
+- PORT.
+- JWT secret and expiry.
+- Frontend API/socket base URL in frontend/src/network/config.ts.
+- WebSocket CORS origin behavior in backend/src/common/ws/ws-cors.options.ts.
+- Prisma generated client availability.
+
+The previous development terminal context reported npm run dev with exit code 1.
+The exact failure was not captured in this audit. Re-run npm run frontend:dev
+from the workspace root or npm run dev from frontend and preserve the terminal
+error before changing configuration.
+
+
+13. PERFORMANCE CHARACTERISTICS
+-------------------------------
+
+Server:
+- A JavaScript interval advances each active match at 10 Hz.
+- Each match keeps a complete MatchState in memory.
+- Socket.IO broadcasts full MatchView snapshots each tick.
+- Redis queue polling runs every two seconds per searching player.
+- Match result persistence uses a database transaction and up to three retries.
+- The engine clones state before advancing, which improves functional safety but
+  creates allocations per tick.
+
+Client:
+- Phaser, game art, and effects are bundled into the main JavaScript chunk.
+- Full game snapshots are pushed into Phaser through Zustand subscriptions.
+- Particle emitters are reused for common visual effects.
+- RESIZE scaling adapts the battlefield to the host element.
+- Card, base, unit, water, flame, and banner animations can be reduced through
+  the UI motion preference.
+
+Load-test implications:
+- Single-process in-memory match state limits horizontal scaling.
+- Full snapshots at 10 Hz multiply bandwidth by active match count.
+- Per-player matchmaking polling can become expensive with many queued players.
+- Phaser bundle size affects initial browser load time.
+- PostgreSQL transaction contention can appear when many matches finish together.
+
+
+14. SECURITY REVIEW AREAS
+-------------------------
+
+Strengths:
+- JWT authentication is applied to HTTP and both Socket.IO namespaces.
+- Server validates gameplay membership before returning a match view.
+- Server validates deployment payloads and owns all game outcomes.
+- DTO whitelist and forbidNonWhitelisted protect HTTP input shape.
+- Passwords are hashed and not projected publicly.
+- Socket payloads are manually validated before processing.
+- Request IDs reduce duplicate deployment effects.
+
+Areas to harden before production:
+- Confirm JWT secret is mandatory and managed outside source control.
+- Add rate limiting to auth endpoints and potentially socket events.
+- Add maximum lengths and abuse controls for all user-facing strings beyond DTO
+  validation.
+- Review CORS defaults for deployment environments.
+- Review Redis and PostgreSQL network authentication/TLS.
+- Consider token revocation or session invalidation strategy.
+- Ensure logs do not expose sensitive identifiers or operational secrets.
+- Ensure a disconnected client cannot leave stale active-player state after
+  process failure; distributed presence would be required for multi-instance.
+- Consider validating Socket.IO payloads through shared schemas to prevent
+  contract divergence.
+
+
+15. MAINTAINABILITY AND CORRECTNESS RISKS
+-----------------------------------------
+
+1. In-memory gameplay state.
+   A process restart loses active matches. A second backend instance cannot see
+   another instance's match state or timers. Production needs a shared state
+   strategy, sticky routing, or an explicit single-instance constraint.
+
+2. Documentation drift.
+   README references PixiJS while source uses Phaser 4. Visual overhaul paths
+   also reference older files. This can mislead contributors and complicate
+   onboarding.
+
+3. Contract duplication.
+   Frontend protocol types manually mirror backend payloads. This avoids a
+   dependency but requires disciplined updates or generated contracts.
+
+4. Timer ownership.
+   GameplayGateway owns intervals while GameplayService owns match state and
+   join deadlines. This works in one process but creates lifecycle coordination
+   complexity during errors, restarts, or horizontal scaling.
+
+5. Full state broadcasts.
+   Every tick broadcasts a whole match view. Deltas or compressed snapshots may
+   be preferable as matches and unit counts grow.
+
+6. Bundle size.
+   The frontend build reports a large JavaScript chunk. Lazy-loading the game
+   screen and Phaser would reduce auth/lobby initial load.
+
+7. Test surface.
+   Core engine and stores have tests, but the complete React screen and Phaser
+   rendering surface has less automated coverage. Browser-level responsive and
+   visual regression tests would reduce UI regressions.
+
+8. Environment reproducibility.
+   PostgreSQL, Redis, environment variables, migrations, and card seed order
+   are external prerequisites. A Docker Compose or documented local service
+   profile would reduce setup failures.
+
+9. Runtime card consistency.
+   Cards may be seeded by SQL and also upserted during registration. The two
+   sources should remain synchronized or one should become the single source of
+   truth.
+
+10. Error recovery.
+    Some errors are emitted to clients and logged, but a durable reconciliation
+    job for abandoned PLAYING rows is not evident. A startup cleanup/recovery
+    process would improve operational correctness.
+
+11. Matchmaking queue cleanup.
+    Redis metadata and sorted-set entries depend on normal leave/disconnect/error
+    paths. A periodic stale-entry cleanup would protect against crashed clients.
+
+12. Visual implementation drift.
+    The visual overhaul spec contains useful goals but refers to old Pixi file
+    names. Keep it as a roadmap only after updating its implementation links.
+
+
+16. RECOMMENDED PRIORITY ROADMAP
+--------------------------------
+
+P0 - make local operation predictable:
+- Capture and fix the frontend npm run dev failure.
+- Add a clear .env.example with database, Redis, JWT, API, and socket values.
+- Add a Docker Compose profile for PostgreSQL and Redis.
+- Update README renderer references from PixiJS to Phaser 4.
+- Add a startup health check for database, Redis, and card availability.
+
+P1 - improve production correctness:
+- Add stale Redis queue cleanup.
+- Add startup cleanup/reconciliation for abandoned PLAYING matches.
+- Decide whether the product supports one backend instance or needs distributed
+  match state and timer coordination.
+- Add rate limiting and stronger auth/session controls.
+- Centralize or generate REST and Socket.IO contract types.
+
+P1 - improve frontend loading and confidence:
+- Lazy-load Phaser and GameScreen after authentication.
+- Add browser tests for auth, lobby responsive layout, queue state, and game
+  transition.
+- Add visual regression screenshots at mobile, tablet, desktop, and short-height
+  viewports.
+- Keep reduced-motion behavior synchronized between React and Phaser.
+
+P2 - improve gameplay presentation:
+- Complete the visual-overhaul roadmap against current Phaser file paths.
+- Make forbidden ground and legal deployment lanes visually distinct.
+- Improve attack hit feedback, damage numbers, base damage pulses, and death
+  transitions.
+- Replace ambiguous HUD values with clear tower, base HP, energy, and card stats.
+- Add accessibility labels and keyboard/controller affordances where practical.
+
+P2 - improve scale:
+- Profile engine cloning and collision/separation costs.
+- Consider delta snapshots or binary/compressed payloads.
+- Add Redis-backed or dedicated match workers if concurrency targets increase.
+- Split frontend bundle by auth/lobby/game route.
+
+
+17. FINAL ASSESSMENT
+--------------------
+
+WarLand has a coherent and unusually complete prototype foundation. The most
+important architectural choice, server authority, is reflected consistently in
+the engine, gateway validation, match views, and client rendering. The pure
+engine boundary is a strong foundation for deterministic tests and future
+server deployment changes. The progression, matchmaking, terminal clients,
+load-test harness, and renderer create a broader feature set than a minimal
+prototype.
+
+The current highest-value work is operational consistency rather than adding
+more game rules: make setup reproducible, resolve the frontend dev failure,
+remove documentation drift, improve recovery for in-memory matches and stale
+queues, and add browser-level validation. After those are stable, Phaser visual
+polish and bundle splitting will produce the clearest user-facing gains.

@@ -23,7 +23,10 @@ function validate(
   } else if (mode === 'register' && !/^[a-zA-Z0-9_]+$/.test(username)) {
     errors.username = 'Letters, numbers, and underscores only.';
   }
-  if (mode === 'register' && (displayName.length < 1 || displayName.length > 80)) {
+  if (
+    mode === 'register' &&
+    (displayName.length < 1 || displayName.length > 80)
+  ) {
     errors.displayName = 'Display name must be 1–80 characters.';
   }
   if (mode === 'register') {
@@ -70,9 +73,17 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="warland-bg flex min-h-full items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <header className="mb-7 text-center">
+    <div className="relative flex min-h-full items-center justify-center overflow-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(140%_90%_at_50%_-10%,rgba(230,180,80,0.08),transparent_65%),linear-gradient(180deg,#070a12_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto] p-4">
+      <div className="relative grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(360px,0.75fr)] lg:gap-20">
+        <header className="mb-7 text-center lg:mb-0 lg:text-left">
+          <div
+            className="mx-auto mb-4 flex h-7 w-[5.5rem] items-center justify-center gap-1.5 lg:mx-0"
+            aria-hidden="true"
+          >
+            <span className="h-1 w-[1.1rem] -skew-x-[28deg] bg-gold/45" />
+            <span className="h-1 w-[1.8rem] -skew-x-[28deg] bg-gold" />
+            <span className="h-1 w-[1.1rem] -skew-x-[28deg] bg-gold/45" />
+          </div>
           <h1 className="font-display text-5xl font-bold tracking-[0.2em] gold-text">
             WARLAND
           </h1>
@@ -81,7 +92,7 @@ export function AuthScreen() {
           </p>
         </header>
 
-        <Panel className="p-6">
+        <Panel className="shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_30px_80px_-46px_rgba(0,0,0,0.98),0_0_70px_-50px_rgba(230,180,80,0.45)] p-6 sm:p-8">
           <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-ink-900/70 p-1">
             {(['login', 'register'] as const).map((m) => (
               <button
@@ -129,7 +140,9 @@ export function AuthScreen() {
               type="password"
               value={password}
               onChange={setPassword}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              autoComplete={
+                mode === 'login' ? 'current-password' : 'new-password'
+              }
               error={errors.password}
               disabled={busy}
             />
@@ -191,7 +204,9 @@ function Field({
           error ? 'border-red-800' : 'border-line',
         ].join(' ')}
       />
-      {error && <span className="mt-1 block text-xs text-red-300">{error}</span>}
+      {error && (
+        <span className="mt-1 block text-xs text-red-300">{error}</span>
+      )}
     </label>
   );
 }

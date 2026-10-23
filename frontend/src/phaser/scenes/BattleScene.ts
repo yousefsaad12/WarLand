@@ -180,8 +180,10 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.zoomTo(1.025, 220, 'Quad.easeOut', true);
     this.cameras.main.flash(240, 255, 245, 225, false);
     this.cameras.main.shake(320, 0.006);
+    sfx.baseHit();
     this.time.delayedCall(900, () => {
-      if (this.cameras.main) this.cameras.main.zoomTo(1, 400, 'Quad.easeIn', true);
+      if (this.cameras.main)
+        this.cameras.main.zoomTo(1, 400, 'Quad.easeIn', true);
     });
     void side;
   }
@@ -263,7 +265,12 @@ export class BattleScene extends Phaser.Scene {
       }
       const layout = this.arena.getLayout();
       const map = screenToMap(layout, p.x, p.y);
-      if (!map || !this.state.view || !this.state.localSide || !this.state.selectedCardId) {
+      if (
+        !map ||
+        !this.state.view ||
+        !this.state.localSide ||
+        !this.state.selectedCardId
+      ) {
         this.ghost.setVisible(false);
         this.rangeGfx.clear();
         return;
@@ -276,7 +283,12 @@ export class BattleScene extends Phaser.Scene {
 
       const layout = this.arena.getLayout();
       const map = screenToMap(layout, p.x, p.y);
-      if (!map || !this.state.view || !this.state.localSide || !this.state.selectedCardId) {
+      if (
+        !map ||
+        !this.state.view ||
+        !this.state.localSide ||
+        !this.state.selectedCardId
+      ) {
         return;
       }
       if (!this.isValidDeploy(map.x, map.y)) return;
@@ -320,8 +332,18 @@ export class BattleScene extends Phaser.Scene {
     }
     if (!valid) {
       this.rangeGfx.lineStyle(2.5, COLORS.danger, 0.85);
-      this.rangeGfx.lineBetween(screen.x - 12, screen.y - 12, screen.x + 12, screen.y + 12);
-      this.rangeGfx.lineBetween(screen.x + 12, screen.y - 12, screen.x - 12, screen.y + 12);
+      this.rangeGfx.lineBetween(
+        screen.x - 12,
+        screen.y - 12,
+        screen.x + 12,
+        screen.y + 12,
+      );
+      this.rangeGfx.lineBetween(
+        screen.x + 12,
+        screen.y - 12,
+        screen.x - 12,
+        screen.y + 12,
+      );
     }
   }
 
