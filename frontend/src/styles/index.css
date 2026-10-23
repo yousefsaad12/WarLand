@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import 'tailwindcss';
 
 @font-face {
   font-family: 'Inter';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2') format('woff2');
+  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2')
+    format('woff2');
   font-display: swap;
   font-weight: 400 700;
 }
@@ -18,7 +20,8 @@
   --color-gold-soft: #9a7a2f;
   --color-team-left: #4f9bff;
   --color-team-right: #ff4f4f;
-  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 html,
@@ -32,7 +35,12 @@ body {
   background-color: var(--color-ink-950);
   color: #e7e9ee;
   font-family:
-    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Inter',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
@@ -44,13 +52,108 @@ body {
 
 .warland-bg {
   background:
-    radial-gradient(140% 90% at 50% -10%, rgba(230, 180, 80, 0.08), transparent 65%),
-    radial-gradient(90% 70% at 50% 110%, rgba(79, 155, 255, 0.06), transparent 65%),
+    radial-gradient(
+      140% 90% at 50% -10%,
+      rgba(230, 180, 80, 0.08),
+      transparent 65%
+    ),
+    radial-gradient(
+      90% 70% at 50% 110%,
+      rgba(79, 155, 255, 0.06),
+      transparent 65%
+    ),
     linear-gradient(180deg, #070a12 0%, #050608 100%);
 }
 
+.lobby-shell {
+  isolation: isolate;
+}
+
+.lobby-main {
+  align-items: start;
+}
+
+.lobby-hero,
+.lobby-side-panel,
+.deck-card {
+  animation: warland-rise 0.45s ease-out both;
+}
+
+.lobby-side-panel {
+  animation-delay: 100ms;
+  min-height: 360px;
+}
+
+.deck-card {
+  animation-delay: calc(140ms + (var(--card-index, 0) * 55ms));
+}
+
+.deck-card:focus-within {
+  border-color: rgba(230, 180, 80, 0.55);
+}
+
+@media (max-width: 1023px) {
+  .lobby-main {
+    max-width: 760px;
+  }
+
+  .lobby-side-panel {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 639px) {
+  .lobby-header {
+    align-items: flex-start;
+  }
+
+  .lobby-header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .lobby-main {
+    gap: 1rem;
+    padding-top: 1.25rem;
+    padding-bottom: 2rem;
+  }
+
+  .lobby-hero,
+  .lobby-side-panel {
+    border-radius: 1.5rem;
+  }
+
+  .lobby-side-panel {
+    min-height: 280px;
+  }
+}
+
+@media (max-height: 720px) and (min-width: 640px) {
+  .lobby-main {
+    gap: 1rem;
+    padding-top: 1.25rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .lobby-side-panel {
+    min-height: 300px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-hero,
+  .lobby-side-panel,
+  .deck-card {
+    animation: none;
+  }
+}
+
 .panel {
-  background: linear-gradient(180deg, rgba(21, 27, 40, 0.98) 0%, rgba(10, 13, 20, 0.98) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(21, 27, 40, 0.98) 0%,
+    rgba(10, 13, 20, 0.98) 100%
+  );
   border: 1px solid rgba(42, 51, 72, 0.9);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.02) inset,
@@ -60,7 +163,11 @@ body {
 
 .panel-frame {
   position: relative;
-  background: linear-gradient(180deg, rgba(21, 27, 40, 0.98) 0%, rgba(10, 13, 20, 0.98) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(21, 27, 40, 0.98) 0%,
+    rgba(10, 13, 20, 0.98) 100%
+  );
   border: 1px solid rgba(42, 51, 72, 0.95);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.03) inset,
@@ -74,7 +181,11 @@ body {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: radial-gradient(120% 120% at 50% 0%, rgba(230, 180, 80, 0.08), transparent 60%);
+  background: radial-gradient(
+    120% 120% at 50% 0%,
+    rgba(230, 180, 80, 0.08),
+    transparent 60%
+  );
 }
 
 .btn-neo {
@@ -105,13 +216,21 @@ body {
 }
 
 .btn-neo-secondary {
-  background: linear-gradient(180deg, rgba(30, 37, 56, 0.9) 0%, rgba(15, 20, 32, 0.9) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(30, 37, 56, 0.9) 0%,
+    rgba(15, 20, 32, 0.9) 100%
+  );
   color: #e7e9ee;
   border-color: rgba(58, 68, 96, 0.9);
 }
 
 .btn-neo-secondary:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(36, 44, 66, 0.95) 0%, rgba(18, 24, 38, 0.95) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(36, 44, 66, 0.95) 0%,
+    rgba(18, 24, 38, 0.95) 100%
+  );
 }
 
 .btn-neo-danger {

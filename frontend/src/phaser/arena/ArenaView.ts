@@ -175,11 +175,7 @@ export class ArenaView {
       ease: 'Cubic.easeOut',
       onComplete: () => ring.destroy(),
     });
-    this.vfx.burstEmbers(
-      base.pos.x,
-      base.pos.y - base.keepHeight * 0.3,
-      4,
-    );
+    this.vfx.burstEmbers(base.pos.x, base.pos.y - base.keepHeight * 0.3, 4);
   }
 
   getBounds() {
@@ -226,7 +222,9 @@ export class ArenaView {
     ]);
     base.cracks.lineStyle(1.6, 0x121620, 0.82);
     for (let i = 0; i < count; i += 1) {
-      let x = base.pos.x + rng.between(-base.keepHeight * 0.22, base.keepHeight * 0.22);
+      let x =
+        base.pos.x +
+        rng.between(-base.keepHeight * 0.22, base.keepHeight * 0.22);
       let y = base.keep.y - base.keepHeight * rng.between(0.16, 0.68);
       base.cracks.beginPath();
       base.cracks.moveTo(x, y);
@@ -278,7 +276,8 @@ export class ArenaView {
     for (let i = 0; i < 5; i += 1) {
       const rock = this.scene.add.image(
         base.pos.x + rng.between(-base.keepHeight * 0.6, base.keepHeight * 0.6),
-        base.platformY + rng.between(-base.keepHeight * 0.1, base.keepHeight * 0.22),
+        base.platformY +
+          rng.between(-base.keepHeight * 0.1, base.keepHeight * 0.22),
         `rock${(i % 3) + 1}`,
       );
       rock.setScale(rng.realInRange(0.16, 0.3));
@@ -423,13 +422,7 @@ export class ArenaView {
     this.root.add(frame);
 
     const margin = this.scene.add
-      .tileSprite(
-        x - 6,
-        y - 6,
-        width + 12,
-        height + 12,
-        'dirt1',
-      )
+      .tileSprite(x - 6, y - 6, width + 12, height + 12, 'dirt1')
       .setOrigin(0)
       .setTint(0x4b5468)
       .setAlpha(0.55);
@@ -488,9 +481,7 @@ export class ArenaView {
     for (let row = 0; row < GRID_Y; row += 1) {
       for (let col = 0; col < GRID_X; col += 1) {
         const mx = ((col + 0.5) / GRID_X) * 100;
-        const my =
-          VIEW_Y0 +
-          ((row + 0.5) / GRID_Y) * (VIEW_Y1 - VIEW_Y0);
+        const my = VIEW_Y0 + ((row + 0.5) / GRID_Y) * (VIEW_Y1 - VIEW_Y0);
         const hash = ((col * 73856093) ^ (row * 19349663)) >>> 0;
         const roll = (hash % 1000) / 1000;
         const road = Math.abs(my - MAP_CENTER) < 7.5;
@@ -532,13 +523,7 @@ export class ArenaView {
     const mid = mapToScreen(this.layout, MAP_CENTER, MAP_CENTER);
     const roadH = height * 0.24;
     const lane = this.scene.add
-      .tileSprite(
-        x - 2,
-        mid.y - roadH / 2,
-        width + 4,
-        roadH,
-        'dirt1',
-      )
+      .tileSprite(x - 2, mid.y - roadH / 2, width + 4, roadH, 'dirt1')
       .setOrigin(0)
       .setTint(0xffe6b8)
       .setAlpha(0.2);
@@ -554,7 +539,9 @@ export class ArenaView {
     const rng = new Phaser.Math.RandomDataGenerator(['lane-dressing']);
     for (let i = 0; i < 18; i += 1) {
       const px = x + rng.between(12, width - 12);
-      const py = mid.y + (rng.frac() > 0.5 ? 1 : -1) * roadH * rng.realInRange(0.34, 0.48);
+      const py =
+        mid.y +
+        (rng.frac() > 0.5 ? 1 : -1) * roadH * rng.realInRange(0.34, 0.48);
       const pebble = this.scene.add.image(px, py, `rock${(i % 3) + 1}`);
       pebble.setScale(rng.realInRange(0.08, 0.16));
       pebble.setAlpha(0.5);
@@ -578,13 +565,7 @@ export class ArenaView {
     this.root.add(banks);
 
     const base = this.scene.add
-      .tileSprite(
-        cx - riverW / 2,
-        y - 10,
-        riverW,
-        height + 20,
-        'water1',
-      )
+      .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'water1')
       .setOrigin(0)
       .setTint(0x9fd6ef)
       .setAlpha(0.96);
@@ -592,13 +573,7 @@ export class ArenaView {
     this.waterTiles.push(base);
 
     const shimmer = this.scene.add
-      .tileSprite(
-        cx - riverW / 2,
-        y - 10,
-        riverW,
-        height + 20,
-        'water2',
-      )
+      .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'water2')
       .setOrigin(0)
       .setTint(0xe8fbff)
       .setAlpha(0.24);
@@ -607,8 +582,18 @@ export class ArenaView {
 
     const edges = this.scene.add.graphics();
     edges.lineStyle(2, 0x1c2a30, 0.6);
-    edges.lineBetween(cx - riverW / 2, y - 10, cx - riverW / 2, y + height + 10);
-    edges.lineBetween(cx + riverW / 2, y - 10, cx + riverW / 2, y + height + 10);
+    edges.lineBetween(
+      cx - riverW / 2,
+      y - 10,
+      cx - riverW / 2,
+      y + height + 10,
+    );
+    edges.lineBetween(
+      cx + riverW / 2,
+      y - 10,
+      cx + riverW / 2,
+      y + height + 10,
+    );
     edges.lineStyle(1, 0xd9f4ff, 0.25);
     edges.lineBetween(
       cx - riverW / 2 + 3,
@@ -655,7 +640,12 @@ export class ArenaView {
       top + bridgeH - 3,
     );
     bridge.lineStyle(1, 0x3c3022, 0.7);
-    bridge.lineBetween(left + 2, top + bridgeH * 0.48, left + bridgeW - 2, top + bridgeH * 0.48);
+    bridge.lineBetween(
+      left + 2,
+      top + bridgeH * 0.48,
+      left + bridgeW - 2,
+      top + bridgeH * 0.48,
+    );
 
     for (const [px, py] of [
       [left + 1, top],
@@ -768,7 +758,7 @@ export class ArenaView {
   private drawBases() {
     const keepHeight = Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220);
     const keepScale = keepHeight / 128;
-    const towerHeight = keepHeight * 0.58;
+    const towerHeight = keepHeight * 0.64;
     const towerScale = towerHeight / 64;
     const platformW = keepHeight * 1.72;
     const platformH = platformW * 0.4;
@@ -801,9 +791,19 @@ export class ArenaView {
       platform.fillStyle(0x4e576c, 1);
       platform.fillEllipse(pos.x, platformY, platformW, platformH);
       platform.fillStyle(0x69748b, 1);
-      platform.fillEllipse(pos.x, platformY - 4, platformW * 0.82, platformH * 0.78);
+      platform.fillEllipse(
+        pos.x,
+        platformY - 4,
+        platformW * 0.82,
+        platformH * 0.78,
+      );
       platform.lineStyle(1.5, 0x9ca7bd, 0.35);
-      platform.strokeEllipse(pos.x, platformY - 4, platformW * 0.82, platformH * 0.78);
+      platform.strokeEllipse(
+        pos.x,
+        platformY - 4,
+        platformW * 0.82,
+        platformH * 0.78,
+      );
       platform.lineStyle(1, 0x333c4e, 0.7);
       for (let i = 0; i < 9; i += 1) {
         const a = (i / 9) * Math.PI * 2;
@@ -815,6 +815,25 @@ export class ArenaView {
         );
       }
       this.root.add(platform);
+
+      const foundation = this.scene.add.graphics();
+      foundation.fillStyle(0x182131, 0.96);
+      foundation.fillRoundedRect(
+        pos.x - keepHeight * 0.36,
+        platformY - keepHeight * 0.08,
+        keepHeight * 0.72,
+        keepHeight * 0.28,
+        keepHeight * 0.05,
+      );
+      foundation.lineStyle(1.5, team, 0.42);
+      foundation.strokeRoundedRect(
+        pos.x - keepHeight * 0.36,
+        platformY - keepHeight * 0.08,
+        keepHeight * 0.72,
+        keepHeight * 0.28,
+        keepHeight * 0.05,
+      );
+      this.root.add(foundation);
 
       const shadowTowers = this.scene.add
         .image(pos.x, platformY, 'fx_radial_shadow')
@@ -833,16 +852,53 @@ export class ArenaView {
       makeTower(pos.x + dir * platformW * 0.36, 'tower_square');
       makeTower(pos.x - dir * platformW * 0.36, 'tower_round');
 
+      const gate = this.scene.add.graphics();
+      gate.fillStyle(0x090d15, 0.9);
+      gate.fillRoundedRect(
+        pos.x - keepHeight * 0.1,
+        platformY - keepHeight * 0.08,
+        keepHeight * 0.2,
+        keepHeight * 0.25,
+        keepHeight * 0.08,
+      );
+      gate.lineStyle(1.2, team, 0.55);
+      gate.strokeRoundedRect(
+        pos.x - keepHeight * 0.1,
+        platformY - keepHeight * 0.08,
+        keepHeight * 0.2,
+        keepHeight * 0.25,
+        keepHeight * 0.08,
+      );
+      this.root.add(gate);
+
       const runeSigil = this.scene.add.graphics();
       runeSigil.lineStyle(1.6, team, 0.45);
-      runeSigil.strokeEllipse(pos.x, platformY - 4, platformW * 0.72, platformH * 0.7);
+      runeSigil.strokeEllipse(
+        pos.x,
+        platformY - 4,
+        platformW * 0.72,
+        platformH * 0.7,
+      );
       runeSigil.lineStyle(1, team, 0.25);
-      runeSigil.strokeEllipse(pos.x, platformY - 4, platformW * 0.5, platformH * 0.48);
+      runeSigil.strokeEllipse(
+        pos.x,
+        platformY - 4,
+        platformW * 0.5,
+        platformH * 0.48,
+      );
       this.root.add(runeSigil);
 
-      const shieldL = this.scene.add.image(pos.x + dir * platformW * 0.36, platformY - towerHeight * 0.42, 'icon_shield');
+      const shieldL = this.scene.add.image(
+        pos.x + dir * platformW * 0.36,
+        platformY - towerHeight * 0.42,
+        'icon_shield',
+      );
       shieldL.setDisplaySize(14, 14).setTint(team).setAlpha(0.85);
-      const shieldR = this.scene.add.image(pos.x - dir * platformW * 0.36, platformY - towerHeight * 0.42, 'icon_shield');
+      const shieldR = this.scene.add.image(
+        pos.x - dir * platformW * 0.36,
+        platformY - towerHeight * 0.42,
+        'icon_shield',
+      );
       shieldR.setDisplaySize(14, 14).setTint(team).setAlpha(0.85);
       if (side === 'RIGHT') shieldR.setFlipX(true);
       this.root.add([shieldL, shieldR]);
@@ -863,7 +919,11 @@ export class ArenaView {
         .setBlendMode(Phaser.BlendModes.ADD);
       this.root.add(warm);
 
-      const keep = this.scene.add.sprite(pos.x, pos.y + platformH * 0.3, 'keep');
+      const keep = this.scene.add.sprite(
+        pos.x,
+        pos.y + platformH * 0.3,
+        'keep',
+      );
       keep.setOrigin(0.5, 0.9);
       keep.setScale(keepScale);
       this.root.add(keep);

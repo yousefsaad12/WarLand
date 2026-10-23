@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { Panel } from '@/components/Panel';
@@ -117,9 +118,9 @@ export function LobbyScreen() {
   const canQueue = connection === 'connected' && queue === 'idle';
 
   return (
-    <div className="warland-bg relative flex min-h-screen flex-col overflow-x-hidden overflow-y-auto">
+    <div className="warland-bg lobby-shell relative flex min-h-screen flex-col overflow-x-hidden overflow-y-auto">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.12),transparent_70%)]" />
-      <header className="relative z-10 flex flex-wrap items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6 sm:py-5 gap-3">
+      <header className="lobby-header relative z-10 flex flex-wrap items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6 sm:py-5 gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-[0.3em] sm:tracking-[0.6em] uppercase gold-text">
             Warland
@@ -134,15 +135,19 @@ export function LobbyScreen() {
             <span className={`h-1.5 w-1.5 rounded-full ${conn.tone}`} />
             {conn.text}
           </div>
-          <Button variant="ghost" onClick={logout} className="text-xs px-3 py-1.5">
+          <Button
+            variant="ghost"
+            onClick={logout}
+            className="text-xs px-3 py-1.5"
+          >
             Sign out
           </Button>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <main className="lobby-main relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="flex flex-col gap-6">
-          <Panel className="relative p-5 sm:p-8">
+          <Panel className="lobby-hero relative p-5 sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
@@ -184,11 +189,12 @@ export function LobbyScreen() {
                 </div>
                 <Icon name="star" className="h-4 w-4 text-gold" />
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-                {profile.deck.map((owned) => (
+              <div className="deck-grid grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                {profile.deck.map((owned, index) => (
                   <DeckCard
                     key={owned.card.id}
                     owned={owned}
+                    index={index}
                     onSelect={() => setInspectedCard(owned)}
                   />
                 ))}
@@ -230,7 +236,9 @@ export function LobbyScreen() {
                         <span className="text-slate-600">#{row.tag}</span>
                       </span>
                     </span>
-                    <span className="gold-text font-semibold">{row.rating}</span>
+                    <span className="gold-text font-semibold">
+                      {row.rating}
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -238,7 +246,7 @@ export function LobbyScreen() {
           </Panel>
         </div>
 
-        <Panel className="relative flex flex-col items-center justify-center overflow-hidden p-6 sm:p-10 text-center">
+        <Panel className="lobby-side-panel relative flex flex-col items-center justify-center overflow-hidden p-6 sm:p-10 text-center">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.14),transparent_70%)]" />
           <div className="relative z-10 flex flex-col items-center">
             {queue === 'searching' ? (
@@ -256,7 +264,11 @@ export function LobbyScreen() {
                 <p className="mt-2 max-w-xs text-sm text-slate-500">
                   Finding a commander of comparable skill level
                 </p>
-                <Button variant="ghost" className="mt-8" onClick={() => leaveQueue()}>
+                <Button
+                  variant="ghost"
+                  className="mt-8"
+                  onClick={() => leaveQueue()}
+                >
                   Cancel search
                 </Button>
               </>
@@ -272,7 +284,7 @@ export function LobbyScreen() {
                   Command your deck across a single lane. Destroy the enemy base
                   before time runs out.
                 </p>
-                  <Button
+                <Button
                   variant="primary"
                   className="mt-8 sm:mt-10 w-full sm:w-auto px-12"
                   disabled={!canQueue}
@@ -320,12 +332,22 @@ function Stat({ label, value }: { label: string; value: string }) {
       <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.5em] text-slate-500">
         {label}
       </p>
-      <p className="mt-1.5 text-xl sm:text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="mt-1.5 text-xl sm:text-2xl font-semibold text-slate-100">
+        {value}
+      </p>
     </div>
   );
 }
 
-function DeckCard({ owned, onSelect }: { owned: OwnedCard; onSelect?: () => void }) {
+function DeckCard({
+  owned,
+  index,
+  onSelect,
+}: {
+  owned: OwnedCard;
+  index: number;
+  onSelect?: () => void;
+}) {
   const ratio = owned.maxed
     ? 1
     : owned.expToNext > 0
@@ -334,7 +356,8 @@ function DeckCard({ owned, onSelect }: { owned: OwnedCard; onSelect?: () => void
 
   return (
     <div
-      className="group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent cursor-pointer transition-all hover:border-gold/30 hover:scale-[1.02] active:scale-[0.98]"
+      className="deck-card group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent cursor-pointer transition-all hover:border-gold/30 hover:scale-[1.02] active:scale-[0.98]"
+      style={{ '--card-index': index } as CSSProperties}
       onClick={() => onSelect?.()}
     >
       <div className="relative h-20 w-full">
@@ -354,9 +377,7 @@ function DeckCard({ owned, onSelect }: { owned: OwnedCard; onSelect?: () => void
           />
         </div>
         <p className="mt-1 text-[10px] text-slate-500">
-          {owned.maxed
-            ? 'Max Level'
-            : `${owned.exp} / ${owned.expToNext} XP`}
+          {owned.maxed ? 'Max Level' : `${owned.exp} / ${owned.expToNext} XP`}
         </p>
       </div>
     </div>
@@ -372,16 +393,40 @@ interface CardInspectModalProps {
 
 function CardInspectModal({ owned, onClose }: CardInspectModalProps) {
   const { card, level, exp, expToNext, maxed } = owned;
-  const ratio = maxed ? 1 : expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 0;
+  const ratio = maxed
+    ? 1
+    : expToNext > 0
+      ? Math.max(0, Math.min(1, exp / expToNext))
+      : 0;
 
   // Stat rows: label + value + optional bar fill fraction
   const stats: { label: string; value: string; fill?: number }[] = [
     { label: 'Energy Cost', value: `${card.cost}` },
-    { label: 'HP', value: `${card.baseHp}`, fill: Math.min(1, card.baseHp / 300) },
-    { label: 'Damage', value: `${card.baseDamage}`, fill: Math.min(1, card.baseDamage / 100) },
-    { label: 'Atk Speed', value: `${card.attackSpeed.toFixed(1)}/s`, fill: Math.min(1, card.attackSpeed / 3) },
-    { label: 'Move Speed', value: `${card.movementSpeed}`, fill: Math.min(1, card.movementSpeed / 200) },
-    { label: 'Range', value: card.range >= 200 ? 'Ranged' : 'Melee', fill: Math.min(1, card.range / 400) },
+    {
+      label: 'HP',
+      value: `${card.baseHp}`,
+      fill: Math.min(1, card.baseHp / 300),
+    },
+    {
+      label: 'Damage',
+      value: `${card.baseDamage}`,
+      fill: Math.min(1, card.baseDamage / 100),
+    },
+    {
+      label: 'Atk Speed',
+      value: `${card.attackSpeed.toFixed(1)}/s`,
+      fill: Math.min(1, card.attackSpeed / 3),
+    },
+    {
+      label: 'Move Speed',
+      value: `${card.movementSpeed}`,
+      fill: Math.min(1, card.movementSpeed / 200),
+    },
+    {
+      label: 'Range',
+      value: card.range >= 200 ? 'Ranged' : 'Melee',
+      fill: Math.min(1, card.range / 400),
+    },
   ];
 
   return (
@@ -418,12 +463,16 @@ function CardInspectModal({ owned, onClose }: CardInspectModalProps) {
 
         <div className="relative z-10 px-6 pb-8 pt-3">
           {/* Name */}
-          <h2 className="text-2xl font-bold tracking-wide text-slate-100">{card.name}</h2>
+          <h2 className="text-2xl font-bold tracking-wide text-slate-100">
+            {card.name}
+          </h2>
 
           {/* XP bar */}
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] uppercase tracking-widest text-slate-500">Experience</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                Experience
+              </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 {maxed ? 'MAX LEVEL' : `${exp} / ${expToNext} XP`}
               </span>
