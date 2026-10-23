@@ -70,11 +70,17 @@ export class GameplayService implements OnModuleDestroy {
     string,
     ReturnType<typeof setTimeout>
   > = new Map();
+  /** Notifies the gateway so connected clients are not left on a frozen tick-0 board. */
+  private abandonListener: ((matchId: string) => void) | null = null;
 
   constructor(
     private readonly dbService: DbService,
     private readonly activePlayers: ActivePlayers,
   ) {}
+
+  setAbandonListener(listener: ((matchId: string) => void) | null) {
+    this.abandonListener = listener;
+  }
 
   onModuleDestroy() {
     for (const timer of this.joinDeadlines.values()) {
@@ -83,23 +89,26 @@ export class GameplayService implements OnModuleDestroy {
     this.joinDeadlines.clear();
     this.joinedMatches.clear();
     this.matchStates.clear();
+    this.abandonListener = null;
   }
 
   async startMatch(matchId: string, player1Id: string, player2Id: string) {
-    const [player1Cards, player2Cards] = await Promise.all([
-      this.fetchPlayerCards(player1Id),
-      this.fetchPlayerCards(player2Id),
+    const [player1Deck, player2Deck] = await Promise.all([
+      this.fetchPlayerDeck(player1Id),
+      this.fetchPlayerDeck(player2Id),
     ]);
 
-    const player1CardSnapshots = this.mapPlayerCardsToSnapshots(player1Cards);
-    const player2CardSnapshots = this.mapPlayerCardsToSnapshots(player2Cards);
     const player1Setup: PlayerSetup = {
       playerId: player1Id,
-      cards: player1CardSnapshots,
+      displayName: player1Deck.displayName,
+      tag: player1Deck.tag,
+      cards: this.mapPlayerCardsToSnapshots(player1Deck.playerCards),
     };
     const player2Setup: PlayerSetup = {
       playerId: player2Id,
-      cards: player2CardSnapshots,
+      displayName: player2Deck.displayName,
+      tag: player2Deck.tag,
+      cards: this.mapPlayerCardsToSnapshots(player2Deck.playerCards),
     };
     const matchState = createMatchState(
       matchId,
@@ -216,6 +225,15 @@ export class GameplayService implements OnModuleDestroy {
         error,
       );
     } finally {
+      // Emit before dispose so room members still receive the notice.
+      try {
+        this.abandonListener?.(matchId);
+      } catch (error) {
+        console.error(
+          `Failed to notify clients about abandoned match ${matchId}:`,
+          error,
+        );
+      }
       this.disposeMatch(matchId);
     }
   }
@@ -234,10 +252,12 @@ export class GameplayService implements OnModuleDestroy {
     ];
   }
 
-  private async fetchPlayerCards(playerId: string) {
+  private async fetchPlayerDeck(playerId: string) {
     const player = await this.dbService.player.findUnique({
       where: { id: playerId },
       select: {
+        displayName: true,
+        tag: true,
         playerCards: {
           select: {
             cardId: true,
@@ -264,11 +284,13 @@ export class GameplayService implements OnModuleDestroy {
       throw new NotFoundException(`Player with ID ${playerId} not found`);
     }
 
-    return player.playerCards;
+    return player;
   }
 
   private mapPlayerCardsToSnapshots(
-    playerCards: Awaited<ReturnType<typeof this.fetchPlayerCards>>,
+    playerCards: Awaited<
+      ReturnType<typeof this.fetchPlayerDeck>
+    >['playerCards'],
   ): CardSnapshot[] {
     return playerCards.map((playerCard) => {
       const card = playerCard.card;

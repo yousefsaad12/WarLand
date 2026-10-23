@@ -38,7 +38,6 @@ interface SessionState {
   register: (input: authApi.RegisterInput) => Promise<boolean>;
   logout: () => void;
   setError: (message: string | null) => void;
-  setPlayer: (player: PlayerPublic) => void;
 }
 
 function messageOf(error: unknown): string {
@@ -101,5 +100,4 @@ export const useSessionStore = create<SessionState>()((set) => ({
   },
 
   setError: (error) => set({ error }),
-  setPlayer: (player) => set({ player }),
 }));

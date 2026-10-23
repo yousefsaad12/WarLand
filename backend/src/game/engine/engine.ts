@@ -48,6 +48,12 @@ export interface GameRules {
 export interface PlayerSetup {
   playerId: string;
   cards: CardSnapshot[];
+  /**
+   * Public display identity. Optional so the pure engine stays usable without
+   * a database; when omitted the match view reports an empty name/tag.
+   */
+  displayName?: string;
+  tag?: string;
 }
 
 export interface InMatchCard {
@@ -57,6 +63,8 @@ export interface InMatchCard {
 
 export interface PlayerState {
   playerId: string;
+  displayName: string;
+  tag: string;
   baseHp: number;
   energyHundredths: number;
   turretAttackProgress: number;
@@ -72,6 +80,35 @@ export interface UnitState {
   y: number;
   hp: number;
   attackProgress: number;
+}
+
+/**
+ * Sentinel id used by attack events for a base, either as the attacker (a base
+ * turret) or as the target. Unit ids are `<matchId>:<spawnSequence>`, so the
+ * sentinel can never collide with a real unit id.
+ */
+export const BASE_EVENT_ID = 'BASE';
+
+/**
+ * A single attack that landed during a tick.
+ *
+ * `attackerId` is the attacking unit's id, or {@link BASE_EVENT_ID} when a
+ * base turret fired — `attackerSide` then says which base. `targetId` is the
+ * damaged unit's id, or {@link BASE_EVENT_ID} when a base was hit —
+ * `targetSide` then says which base.
+ *
+ * `range` is the attacker's range stat. The client uses it to choose between
+ * a melee lunge and a ranged projectile instead of hard-coding card ids,
+ * because the match view deliberately does not expose unit stats.
+ */
+export interface AttackEvent {
+  attackerId: string;
+  attackerSide?: GameSide;
+  targetId: string;
+  targetSide?: GameSide;
+  damage: number;
+  range: number;
+  tick: number;
 }
 
 export type MatchResultReason =
@@ -141,6 +178,8 @@ export interface MatchState {
   players: Record<GameSide, PlayerState>;
   units: UnitState[];
   requestLedger: Map<string, RequestLedgerEntry>;
+  /** Attacks that landed during the most recently resolved tick. */
+  events: AttackEvent[];
   result?: MatchResult;
 }
 
@@ -157,6 +196,10 @@ export interface MatchView {
     GameSide,
     {
       playerId: string;
+      /** Display name of the player. May be empty when unknown. */
+      displayName: string;
+      /** Four digit discriminator shown as `#tag`. May be empty when unknown. */
+      tag: string;
       baseHp: number;
       energyHundredths: number;
       cards: Array<{ cardId: string; name: string; cost: number }>;
@@ -171,6 +214,11 @@ export interface MatchView {
     y: number;
     hp: number;
   }>;
+  /**
+   * Attacks that landed during the most recently resolved tick. Present for
+   * rendering feedback only — the simulation never reads it back.
+   */
+  events?: AttackEvent[];
   result?: MatchResult;
 }
 
@@ -216,6 +264,7 @@ export function createMatchState(
     },
     units: [],
     requestLedger: new Map(),
+    events: [],
   };
 }
 
@@ -244,7 +293,9 @@ export function advanceMatch(
   );
 
   moveUnits(next);
-  resolveAttacks(next);
+  // `next.tick` is incremented right after this call, so the tick recorded on
+  // each attack event is the tick the client will see in the match view.
+  resolveAttacks(next, next.tick + 1);
   removeDefeatedUnits(next);
   separateUnits(next);
 
@@ -267,7 +318,23 @@ export function cancelMatch(state: MatchState): MatchState {
 }
 
 export function toMatchView(state: MatchState): MatchView {
-  return {
+  const units = state.units.map((unit) => {
+    const card = findCard(state.players[unit.owner], unit.cardId);
+    if (!card) {
+      throw new Error(`Unit ${unit.id} refers to a card outside its deck`);
+    }
+    return {
+      id: unit.id,
+      owner: unit.owner,
+      cardId: unit.cardId,
+      cardName: card.snapshot.name,
+      x: unit.x,
+      y: unit.y,
+      hp: unit.hp,
+    };
+  });
+
+  const view: MatchView = {
     matchId: state.matchId,
     status: state.status,
     tick: state.tick,
@@ -279,29 +346,21 @@ export function toMatchView(state: MatchState): MatchView {
       LEFT: toPlayerView(state.players.LEFT),
       RIGHT: toPlayerView(state.players.RIGHT),
     },
-    units: state.units.map((unit) => {
-      const card = findCard(state.players[unit.owner], unit.cardId);
-      if (!card) {
-        throw new Error(`Unit ${unit.id} refers to a card outside its deck`);
-      }
-
-      return {
-        id: unit.id,
-        owner: unit.owner,
-        cardId: unit.cardId,
-        cardName: card.snapshot.name,
-        x: unit.x,
-        y: unit.y,
-        hp: unit.hp,
-      };
-    }),
+    units,
+    ...(state.events.length > 0
+      ? { events: state.events.map((event) => ({ ...event })) }
+      : {}),
     ...(state.result ? { result: { ...state.result } } : {}),
   };
+
+  return view;
 }
 
 function createPlayerState(setup: PlayerSetup, rules: GameRules): PlayerState {
   return {
     playerId: setup.playerId,
+    displayName: setup.displayName ?? '',
+    tag: setup.tag ?? '',
     baseHp: rules.baseHp,
     energyHundredths: rules.startingEnergyHundredths,
     turretAttackProgress: 0,
@@ -708,7 +767,8 @@ function segmentCircleEntryFraction(
   return Math.min(1, Math.max(0, entry));
 }
 
-function resolveAttacks(state: MatchState): void {
+function resolveAttacks(state: MatchState, eventTick: number): void {
+  state.events = [];
   const unitDamage = new Map<number, number>();
   const baseDamage: Record<GameSide, number> = { LEFT: 0, RIGHT: 0 };
 
@@ -739,9 +799,28 @@ function resolveAttacks(state: MatchState): void {
         (unitDamage.get(enemy.spawnSequence) ?? 0) +
           attackCount * card.snapshot.damage,
       );
+      for (let i = 0; i < attackCount; i += 1) {
+        state.events.push({
+          attackerId: unit.id,
+          targetId: enemy.id,
+          damage: card.snapshot.damage,
+          range: card.snapshot.range,
+          tick: eventTick,
+        });
+      }
     } else if (attacksBase) {
       const enemySide = oppositeSide(unit.owner);
       baseDamage[enemySide] += attackCount * card.snapshot.damage;
+      for (let i = 0; i < attackCount; i += 1) {
+        state.events.push({
+          attackerId: unit.id,
+          targetId: BASE_EVENT_ID,
+          targetSide: enemySide,
+          damage: card.snapshot.damage,
+          range: card.snapshot.range,
+          tick: eventTick,
+        });
+      }
     }
   }
 
@@ -765,6 +844,16 @@ function resolveAttacks(state: MatchState): void {
         (unitDamage.get(target.spawnSequence) ?? 0) +
           attackCount * state.rules.baseTurret.damage,
       );
+      for (let i = 0; i < attackCount; i += 1) {
+        state.events.push({
+          attackerId: BASE_EVENT_ID,
+          attackerSide: side,
+          targetId: target.id,
+          damage: state.rules.baseTurret.damage,
+          range: state.rules.baseTurret.range,
+          tick: eventTick,
+        });
+      }
     }
   }
 
@@ -965,6 +1054,8 @@ function distance(
 function toPlayerView(player: PlayerState): MatchView['players'][GameSide] {
   return {
     playerId: player.playerId,
+    displayName: player.displayName,
+    tag: player.tag,
     baseHp: player.baseHp,
     energyHundredths: player.energyHundredths,
     cards: player.cards.map(({ snapshot }) => ({
@@ -1004,6 +1095,7 @@ function cloneMatchState(state: MatchState): MatchState {
         },
       ]),
     ),
+    events: state.events.map((event) => ({ ...event })),
     ...(state.result ? { result: { ...state.result } } : {}),
   };
 }

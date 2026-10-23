@@ -69,8 +69,15 @@ export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
   }
 
   @SubscribeMessage('leave_queue')
-  async handleLeaveQueue(@ConnectedSocket() client: Socket) {
-    const playerId = client.data.playerId;
+  async handleLeaveQueue(@ConnectedSocket() client: Socket): Promise<void> {
+    const playerId: string | undefined = client.data?.playerId;
+
+    if (!playerId) {
+      client.emit('queue_error', {
+        message: 'Unauthorized: Player ID missing from socket session.',
+      });
+      return;
+    }
 
     try {
       await this.matchmakingService.leaveQueue(playerId);
@@ -80,9 +87,13 @@ export class MatchmakingGateway implements OnGatewayDisconnect, OnGatewayInit {
       client.emit('match_error', {
         message: 'Could not leave matchmaking, please try again',
       });
+      return;
     }
 
-    return { event: 'queue_left', status: 'cancelled' };
+    // Emitted explicitly so the client always receives the documented
+    // `{ status: 'cancelled' }` payload. Returning the object from the
+    // handler would publish the event with an `undefined` payload.
+    client.emit('queue_left', { status: 'cancelled' });
   }
 
   async handleDisconnect(client: Socket) {

@@ -34,7 +34,11 @@ After authentication you land in the lobby. The left column shows your commander
 
 ![Game Screen](docs/screenshots/game_screen.png)
 
-The heart of WarLand. A top-down PixiJS canvas renders both bases, all living units, projectiles, and the terrain. The header shows each player's base HP bar and the authoritative match timer. The footer shows your current energy (regenerating at 0.5/sec up to max 10), a hint about which card is selected, a "deploying" badge when requests are queued, and your card hand. Select a card, then tap anywhere in your own half (x < 50 for LEFT, x > 50 for RIGHT, y in 30–70) to deploy. The server validates every deployment and broadcasts the authoritative state back every tick.
+The heart of WarLand. A top-down PixiJS canvas renders both bases, all living units, and the terrain. The header shows each player's base HP bar and the authoritative match timer. The footer shows your current energy (regenerating at 0.5/sec up to max 10), a hint about which card is selected, a "deploying" badge when requests are queued, and your card hand. Select a card, then tap anywhere in your own half (x < 50 for LEFT, x > 50 for RIGHT, y in 30–70) to deploy. The server validates every deployment and broadcasts the authoritative state back every tick.
+
+Attacks are animated from the server's per-tick attack events: melee units lunge and swing a swoosh, ranged units fire a projectile that arcs to the target, and every landed hit produces a white flash, a spark burst, and a floating damage number. A dashed circle shows the selected card's attack range, and a faint line links units that are engaged. All of this motion respects the in-game **reduce motion** toggle, which keeps projectiles and damage numbers but drops swooshes, sparks, and flashes.
+
+The combat effects are sprite-based rather than drawn with vector calls. The swing crescents, hit sparks, impact rings, muzzle blasts and the arrow projectile come from the Kenney **Particle Pack** and **Board Game Icons** (both CC0 1.0, vendored under `frontend/public/assets/kenney/` and credited in each pack's `ATTRIBUTION.md`). The particles are greyscale, so they are tinted to the team colour; unit bodies keep their Liberated Pixel Cup art. Every effect has a procedural fallback, so the game still renders correctly if the art fails to load.
 
 ## Contents
 
@@ -205,7 +209,7 @@ Default rules are defined in [`backend/src/game/balance.ts`](./backend/src/game/
 
 Energy is represented internally in hundredths to avoid floating-point drift. The engine checks the selected card, position bounds, the player's deployment zone, and available energy. A deployment must be inside the player's own half — `LEFT` at `x < 50` and `RIGHT` at `x > 50`, with the `x = 50` midline off limits — and within the lane band `y = 50 ± laneHalfWidth`.
 
-The online service loads card stats from the database. Card level is included in the in-match snapshot, but currently does **not** scale HP or damage. The local terminal demo uses the hard-coded `STARTER_CARDS` in `balance.ts`.
+The online service loads card stats from the database. Card level is included in the in-match snapshot and **does** scale HP and damage: every level above 1 adds 5% to both, rounded to an integer (capped at level 10). The local terminal demo uses the hard-coded `STARTER_CARDS` in `balance.ts`.
 
 The engine requires both players to have matching four-card decks. Registration assigns every card currently present in the `Card` table to a new player. Consequently, the database should contain the intended four matching card definitions before creating test accounts.
 
@@ -306,7 +310,12 @@ npx prisma generate
 npx prisma migrate deploy
 ```
 
-There is currently no checked-in card seed script. Before registering players, insert the four intended card definitions into the `Card` table. You can use Prisma Studio for local development:
+There is a checked-in card seed script. Before registering players, insert the four intended card definitions into the `Card` table — either with the seed script or with Prisma Studio for local development:
+
+```powershell
+cd backend
+npm run seed:cards
+```
 
 ```powershell
 cd backend
@@ -438,6 +447,22 @@ Connect to `/gameplay` with the same JWT in Socket.IO auth.
 
 The server accepts no more than three queued deployment requests per player per tick. Deploy results include engine-level rejection reasons such as `CARD_NOT_IN_DECK`, `OUTSIDE_DEPLOYMENT_ZONE`, and `INSUFFICIENT_ENERGY`.
 
+### Attack events
+
+Every `MatchView` carries an optional `events` array with the attacks that landed during the most recent tick. It is purely presentational — the engine's damage resolution is unchanged, and clients may ignore it entirely.
+
+| Field | Meaning |
+|---|---|
+| `attackerId` | Attacking unit id (`<matchId>:<spawnSequence>`), or `"BASE"` for a base turret. |
+| `attackerSide` | Owning side of a base turret attack; absent for unit attacks. |
+| `targetId` | Damaged unit id, or `"BASE"` when a base was hit. |
+| `targetSide` | Which base was hit; absent when a unit was hit. |
+| `damage` | Damage of a single attack. |
+| `range` | Attack range of the attacker in world units. Clients use it to tell ranged attacks (`range > 6`) from melee ones. |
+| `tick` | The tick the attack landed on. |
+
+Damage is clamped by the engine at zero HP, so the sum of an event's damage can exceed the HP a target actually lost.
+
 ## Configuration
 
 | Variable | Required | Default | Purpose |
@@ -474,13 +499,14 @@ HTTP CORS and the Socket.IO gateways allow all origins when `WARLAND_ALLOWED_ORI
 
 ## Testing
 
-Automated coverage lives in three unit-test files and one e2e spec:
+Automated coverage lives in four unit-test files and one e2e spec:
 
 | File | What it covers |
 |---|---|
 | [`backend/src/game/engine/engine.spec.ts`](./backend/src/game/engine/engine.spec.ts) | Engine rules, deployment validation, energy math, and determinism (same input → same output). |
 | [`backend/src/gameplay/gameplay.service.spec.ts`](./backend/src/gameplay/gameplay.service.spec.ts) | Match lifecycle, join deadline handling, and Elo/stat persistence on finish. |
 | [`backend/src/gameplay/gameplay.gateway.spec.ts`](./backend/src/gameplay/gameplay.gateway.spec.ts) | Socket handling, room joins, and per-match tick-timer cleanup on disconnect/finish. |
+| [`backend/src/matchmaking/matchmaking.gateway.spec.ts`](./backend/src/matchmaking/matchmaking.gateway.spec.ts) | Queue join/leave events, including the `queue_left` acknowledgement. |
 | [`backend/test/game-engine.e2e-spec.ts`](./backend/test/game-engine.e2e-spec.ts) | Full-match simulation driven through the real service stack (`npm run test:e2e`). |
 
 Run everything:
@@ -579,9 +605,9 @@ This is expected for the current single-process in-memory design. If higher conc
 - **Single process only:** active game states, deployment queues, timers, and active-player presence are in memory. A server restart ends live games; multiple server instances will not share authoritative state.
 - **Reconnects are not implemented:** a player who disconnects during a match cannot resume through a supported reconnect flow.
 - **Match cancellation is not implemented end to end:** the engine has a cancellation operation, but there is no gameplay cancellation event or persisted cancellation lifecycle. The database match enum currently contains `PLAYING` and `FINISHED`.
-- **Card seed data is manual:** there is no checked-in seed script. Card definitions must exist before account registration, and every new account receives all available cards.
+- **Card seed data is scripted:** `backend/scripts/seed-cards.sql` inserts the four starter cards (`npm run seed:cards`). Registration still grants every card present in the `Card` table at registration time.
 - **Deck rules are strict:** each player must have exactly four cards, and both players must have matching card IDs.
-- **Card upgrades are not applied:** card level is stored and passed into snapshots, but card stats currently use the database base values at every level.
+- **Card upgrades are applied:** card level is stored, passed into snapshots, and scales HP and damage by 5% per level above 1 (capped at level 10).
 - **The bundled web client is thin:** the React client in `frontend/` covers auth, lobby, and live board rendering, but no mobile client ships. The documented HTTP and Socket.IO contracts are client-agnostic, so additional clients can be built against the same interfaces.
 - **Persistence failure needs operational follow-up:** final result saves are retried three times. If all attempts fail, the timer has stopped and an error is emitted; there is no durable background retry/reconciliation job.
 - **No dedicated gameplay integration tests yet:** build success and manual terminal play do not replace test coverage for matchmaking, disconnects, tick timing, and result persistence.

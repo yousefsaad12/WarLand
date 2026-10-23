@@ -70,7 +70,11 @@ function createDbMock() {
       findUnique: vi.fn(({ where }: { where: { id: string } }) =>
         where.id === 'missing'
           ? Promise.resolve(null)
-          : Promise.resolve({ playerCards: starterRows() }),
+          : Promise.resolve({
+              displayName: where.id === 'p1' ? 'Ada' : 'Linus',
+              tag: where.id === 'p1' ? '0007' : '0042',
+              playerCards: starterRows(),
+            }),
       ),
     },
     match: {
@@ -126,6 +130,17 @@ describe('GameplayService lifecycle', () => {
     expect(() => service.getMatchViewForPlayer('m1', 'p3')).toThrow(
       ForbiddenException,
     );
+  });
+
+  it('carries both display identities into the match view', async () => {
+    const { service } = createService();
+    await service.startMatch('m1', 'p1', 'p2');
+
+    const view = service.getMatchViewForPlayer('m1', 'p1');
+    expect(view.players.LEFT.displayName).toBe('Ada');
+    expect(view.players.LEFT.tag).toBe('0007');
+    expect(view.players.RIGHT.displayName).toBe('Linus');
+    expect(view.players.RIGHT.tag).toBe('0042');
   });
 
   it('throws NotFound when reading an unknown match', () => {

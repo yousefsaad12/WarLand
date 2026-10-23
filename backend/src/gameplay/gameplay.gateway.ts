@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { getWebSocketCorsOrigin } from '../common/ws/ws-cors.options.js';
 import { Server, Socket } from 'socket.io';
@@ -25,7 +26,7 @@ const MAX_RESULT_SAVE_ATTEMPTS = 3;
   namespace: '/gameplay',
   cors: { origin: getWebSocketCorsOrigin() },
 })
-export class GameplayGateway implements OnModuleDestroy {
+export class GameplayGateway implements OnModuleDestroy, OnGatewayInit {
   @WebSocketServer()
   server: Server;
   private readonly commandsByMatch: Map<string, DeployCommand[]> = new Map();
@@ -40,6 +41,7 @@ export class GameplayGateway implements OnModuleDestroy {
   ) {}
 
   onModuleDestroy() {
+    this.gameplayService.setAbandonListener(null);
     for (const timer of this.tickTimersByMatch.values()) {
       clearInterval(timer);
     }
@@ -50,6 +52,18 @@ export class GameplayGateway implements OnModuleDestroy {
 
   afterInit(server: Server) {
     server.use(createWsAuthMiddleware(this.jwtService));
+    this.gameplayService.setAbandonListener((matchId) => {
+      server.to(matchId).emit('game_error', {
+        message:
+          'Opponent failed to join in time. Return to lobby and queue again.',
+      });
+      const timer = this.tickTimersByMatch.get(matchId);
+      if (timer) {
+        clearInterval(timer);
+        this.tickTimersByMatch.delete(matchId);
+      }
+      this.commandsByMatch.delete(matchId);
+    });
   }
 
   @SubscribeMessage('join_game')

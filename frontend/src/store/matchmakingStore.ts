@@ -40,10 +40,22 @@ export const useMatchmakingStore = create<MatchmakingState>()((set, get) => ({
 
     next.on('connect', () => set({ connection: 'connected' }));
     next.on('disconnect', (reason) => {
+      // Server already dropped the Redis queue entry on disconnect — never
+      // leave the UI stuck on "searching" after a drop.
+      const wasSearching = get().queue === 'searching';
       if (reason === 'io client disconnect') {
-        set({ connection: 'disconnected' });
+        set({ connection: 'disconnected', queue: 'idle' });
       } else {
-        set({ connection: 'reconnecting' });
+        set({
+          connection: 'reconnecting',
+          queue: 'idle',
+          ...(wasSearching
+            ? {
+                error:
+                  'Search interrupted — queue again when reconnected.',
+              }
+            : {}),
+        });
       }
     });
     next.io.on('reconnect_attempt', () => set({ connection: 'reconnecting' }));
@@ -53,6 +65,7 @@ export const useMatchmakingStore = create<MatchmakingState>()((set, get) => ({
     next.on('connect_error', (error) =>
       set({
         connection: 'disconnected',
+        queue: 'idle',
         error: `Connection failed: ${error.message}`,
       }),
     );

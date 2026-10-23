@@ -98,6 +98,10 @@ export interface MatchCardView {
 
 export interface PlayerView {
   playerId: string;
+  /** Display name of the player. Empty when the server could not resolve it. */
+  displayName: string;
+  /** Four digit discriminator shown as `#tag`. Empty when unknown. */
+  tag: string;
   baseHp: number;
   energyHundredths: number;
   cards: MatchCardView[];
@@ -113,6 +117,31 @@ export interface UnitView {
   hp: number;
 }
 
+/**
+ * Sentinel id used by attack events for a base.
+ * Mirrors `BASE_EVENT_ID` in `backend/src/game/engine/engine.ts`.
+ */
+export const BASE_EVENT_ID = 'BASE';
+
+export type AttackEventTarget =
+  | { targetId: string; targetSide?: GameSide }
+  | { targetId: typeof BASE_EVENT_ID; targetSide: GameSide };
+
+export interface AttackEvent {
+  /** Attacking unit id, or `BASE_EVENT_ID` when a base turret fired. */
+  attackerId: string;
+  /** Owning side of a base turret attack. */
+  attackerSide?: GameSide;
+  /** Damaged unit id, or `BASE_EVENT_ID` when a base was hit. */
+  targetId: string;
+  /** Which base was hit, or undefined when a unit was hit. */
+  targetSide?: GameSide;
+  damage: number;
+  /** Range of the attacker (map units). Used to classify ranged vs melee. */
+  range: number;
+  tick: number;
+}
+
 /** Matches the backend `MatchView` returned by `toMatchView`. */
 export interface MatchView {
   matchId: string;
@@ -124,6 +153,8 @@ export interface MatchView {
   maxEnergyHundredths: number;
   players: Record<GameSide, PlayerView>;
   units: UnitView[];
+  /** Attacks that landed during the most recently resolved tick. */
+  events?: AttackEvent[];
   result?: MatchResult;
 }
 
@@ -143,7 +174,8 @@ export type DeployResultPayload =
       requestId: string;
       status: 'REJECTED';
       reason: string;
-      replayed: boolean;
+      /** Present on engine rejects; omitted for gateway-only TICK_DEPLOYMENT_LIMIT. */
+      replayed?: boolean;
     }
   | {
       requestId: string;

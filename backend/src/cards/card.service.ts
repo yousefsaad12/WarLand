@@ -1,10 +1,45 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DbService } from '../prisma/db.js';
-import { CARD_MAX_LEVEL, cardExpToNextLevel } from '../game/balance.js';
+import {
+  CARD_MAX_LEVEL,
+  cardExpToNextLevel,
+  STARTER_CARDS,
+} from '../game/balance.js';
 
 @Injectable()
-export class CardService {
+export class CardService implements OnModuleInit {
   constructor(private readonly db: DbService) {}
+
+  async onModuleInit() {
+    await this.seedStarterCards();
+  }
+
+  async seedStarterCards() {
+    for (const card of STARTER_CARDS) {
+      await this.db.card.upsert({
+        where: { id: card.cardId },
+        update: {
+          name: card.name,
+          cost: card.cost,
+          baseHp: card.hp,
+          baseDamage: card.damage,
+          attackSpeed: card.attackSpeed,
+          movementSpeed: card.movementSpeed,
+          range: card.range,
+        },
+        create: {
+          id: card.cardId,
+          name: card.name,
+          cost: card.cost,
+          baseHp: card.hp,
+          baseDamage: card.damage,
+          attackSpeed: card.attackSpeed,
+          movementSpeed: card.movementSpeed,
+          range: card.range,
+        },
+      });
+    }
+  }
 
   async findAll() {
     return await this.db.card.findMany({

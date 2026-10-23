@@ -6,39 +6,88 @@ interface CardArtProps {
 }
 
 /**
- * Card artwork. Uses the same LPC unit sprite that appears on the
- * battlefield so the hand reads consistently with the arena. Falls back to a
- * procedural SVG sigil if the sprite fails to load.
+ * Production-grade collectible card artwork with metallic filigree,
+ * role badge, multi-layered gradient backdrop, and unit portrait.
  */
 export function CardArt({ cardId, className = '' }: CardArtProps) {
   const [failed, setFailed] = useState(false);
+  const accent = getAccent(cardId);
+  const role = getRole(cardId);
+
   return (
-    <div className={['relative', className].join(' ')}>
+    <div
+      className={[
+        'relative overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-lg transition-transform duration-200 group-hover:scale-[1.03]',
+        className,
+      ].join(' ')}
+    >
       <svg
-        viewBox="0 0 64 64"
+        viewBox="0 0 96 96"
         className="h-full w-full"
         role="img"
         aria-label={`${cardId} artwork`}
       >
         <defs>
-          <linearGradient id={`plate-${cardId}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1d2637" />
-            <stop offset="100%" stopColor="#0f141d" />
+          <linearGradient id={`card-bg-${cardId}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1e293b" />
+            <stop offset="45%" stopColor="#0f172a" />
+            <stop offset="100%" stopColor="#020617" />
+          </linearGradient>
+          <radialGradient id={`card-glow-${cardId}`} cx="50%" cy="32%" r="65%">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.28" />
+            <stop offset="60%" stopColor={accent} stopOpacity="0.06" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id={`card-border-${cardId}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f5c16e" stopOpacity="0.8" />
+            <stop offset="50%" stopColor={accent} stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#78350f" stopOpacity="0.6" />
           </linearGradient>
         </defs>
-        <rect
-          x="1"
-          y="1"
-          width="62"
-          height="62"
-          rx="10"
-          fill={`url(#plate-${cardId})`}
-          stroke="#2a3444"
+
+        <rect width="96" height="96" fill={`url(#card-bg-${cardId})`} />
+        <rect width="96" height="96" fill={`url(#card-glow-${cardId})`} />
+
+        {/* Decorative corner runes */}
+        <path
+          d="M 6 14 L 6 6 L 14 6 M 82 6 L 90 6 L 90 14 M 90 82 L 90 90 L 82 90 M 14 90 L 6 90 L 6 82"
+          stroke={accent}
+          strokeWidth="1.5"
+          strokeOpacity="0.6"
+          fill="none"
         />
+
+        {/* Outer gold-metallic bevel */}
+        <rect
+          x="2"
+          y="2"
+          width="92"
+          height="92"
+          rx="10"
+          fill="none"
+          stroke={`url(#card-border-${cardId})`}
+          strokeWidth="1.5"
+        />
+
+        {/* Inner frame */}
+        <rect
+          x="4.5"
+          y="4.5"
+          width="87"
+          height="87"
+          rx="8"
+          fill="none"
+          stroke="#1e293b"
+          strokeOpacity="0.85"
+        />
+
+        {/* Unit portrait aura circle */}
+        <circle cx="48" cy="48" r="32" fill="none" stroke={accent} strokeWidth="1" strokeOpacity="0.2" strokeDasharray="3 3" />
+
         {failed && (
           <g
-            stroke="#d8b56a"
-            strokeWidth="2.2"
+            stroke={accent}
+            strokeWidth="2.4"
             fill="none"
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -47,17 +96,70 @@ export function CardArt({ cardId, className = '' }: CardArtProps) {
           </g>
         )}
       </svg>
+
       {!failed && (
         <img
-          src={`/assets/units/${cardId}.png`}
+          src={`/assets/cards/${cardId}_card.png`}
           alt=""
           draggable={false}
-          onError={() => setFailed(true)}
-          className="pointer-events-none absolute inset-0 h-full w-full scale-100 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+          onError={(e) => {
+            // Fallback to unit sprite if card png fails
+            const target = e.currentTarget;
+            if (!target.src.includes(`/assets/units/${cardId}.png`)) {
+              target.src = `/assets/units/${cardId}.png`;
+            } else {
+              setFailed(true);
+            }
+          }}
+          className="pointer-events-none absolute inset-x-0 bottom-[-2px] mx-auto h-[90%] w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.85)] filter transition-transform duration-300 group-hover:scale-105"
         />
       )}
+
+      {/* Role Badge in top-left */}
+      <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-md border border-white/10 bg-slate-900/85 px-1.5 py-0.5 shadow-sm backdrop-blur-xs">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-slate-300">
+          {role}
+        </span>
+      </div>
+
+      {/* Glossy top-down glass shine reflection */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-9 bg-gradient-to-b from-white/10 via-white/5 to-transparent" />
     </div>
   );
+}
+
+function getRole(cardId: string): string {
+  switch (cardId) {
+    case 'knight':
+      return 'Melee';
+    case 'archer':
+      return 'Ranged';
+    case 'guard':
+      return 'Tank';
+    case 'scout':
+      return 'Fast';
+    default:
+      return 'Unit';
+  }
+}
+
+function getAccent(cardId: string) {
+  switch (cardId) {
+    case 'knight':
+      return '#f0c674';
+    case 'guard':
+      return '#9fc3ff';
+    case 'scout':
+      return '#d9b07e';
+    case 'archer':
+      return '#86efac';
+    default:
+      return '#d8b56a';
+  }
 }
 
 function renderGlyph(cardId: string) {

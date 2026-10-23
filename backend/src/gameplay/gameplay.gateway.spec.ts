@@ -33,8 +33,22 @@ function makeView(playerId = 'p1'): MatchView {
     laneHalfWidth: DEFAULT_GAME_RULES.laneHalfWidth,
     maxEnergyHundredths: DEFAULT_GAME_RULES.maxEnergyHundredths,
     players: {
-      LEFT: { playerId, baseHp: 1000, energyHundredths: 500, cards: [] },
-      RIGHT: { playerId: 'p2', baseHp: 1000, energyHundredths: 500, cards: [] },
+      LEFT: {
+        playerId,
+        displayName: 'Ada',
+        tag: '0007',
+        baseHp: 1000,
+        energyHundredths: 500,
+        cards: [],
+      },
+      RIGHT: {
+        playerId: 'p2',
+        displayName: 'Linus',
+        tag: '0042',
+        baseHp: 1000,
+        energyHundredths: 500,
+        cards: [],
+      },
     },
     units: [],
   };
@@ -56,6 +70,7 @@ function createHarness() {
     advanceMatchTick: vi.fn(),
     persistMatchResult: vi.fn().mockResolvedValue(undefined),
     disposeMatch: vi.fn(),
+    setAbandonListener: vi.fn(),
   };
   const jwtService = {} as JwtService;
 

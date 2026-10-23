@@ -6,10 +6,18 @@ import type {
 
 const holder = vi.hoisted(() => ({
   socket: null as FakeSocket | null,
+  fetchCards: null as null | (() => Promise<unknown>),
 }));
 
 vi.mock('@/network/socket', () => ({
   createGameplaySocket: () => holder.socket,
+}));
+
+vi.mock('@/network/http', () => ({
+  requestJson: (path: string) => {
+    if (path === '/cards' && holder.fetchCards) return holder.fetchCards();
+    throw new Error(`unexpected request ${path}`);
+  },
 }));
 
 type Handler = (payload: unknown) => void;
@@ -70,6 +78,8 @@ function makeView(): MatchView {
     players: {
       LEFT: {
         playerId: 'p-left-123456',
+        displayName: 'Ada',
+        tag: '0007',
         baseHp: 1000,
         energyHundredths: 500,
         cards: [
@@ -79,6 +89,8 @@ function makeView(): MatchView {
       },
       RIGHT: {
         playerId: 'p-right-123456',
+        displayName: 'Linus',
+        tag: '0042',
         baseHp: 1000,
         energyHundredths: 500,
         cards: [{ cardId: 'guard', name: 'Guard', cost: 4 }],
@@ -110,6 +122,8 @@ function startMatch(side: 'LEFT' | 'RIGHT' = 'LEFT'): FakeSocket {
 
 beforeEach(() => {
   holder.socket = null;
+  holder.fetchCards = null;
+  useGameStore.setState({ cardRanges: {}, cardCatalog: {} });
   useGameStore.getState().leaveMatch();
 });
 
@@ -254,5 +268,56 @@ describe('gameStore socket wiring', () => {
       winner: 'LEFT',
       reason: 'BASE_DESTROYED',
     });
+  });
+
+  it('keeps the attack events of the latest tick in the view', () => {
+    const fake = startMatch('LEFT');
+    const view = makeView();
+    fake.fire('game_state', {
+      ...view,
+      tick: 12,
+      events: [
+        {
+          attackerId: 'm1:1',
+          targetId: 'm1:2',
+          damage: 14,
+          range: 2,
+          tick: 12,
+        },
+      ],
+    });
+
+    const events = useGameStore.getState().view?.events;
+    expect(events).toHaveLength(1);
+    expect(events?.[0]?.damage).toBe(14);
+    expect(events?.[0]?.range).toBe(2);
+  });
+});
+
+describe('gameStore card ranges', () => {
+  it('loads the attack range of every card', async () => {
+    holder.fetchCards = async () => [
+      { id: 'knight', range: 2 },
+      { id: 'archer', range: 11 },
+    ];
+
+    await useGameStore.getState().loadCardRanges();
+
+    expect(useGameStore.getState().cardRanges).toEqual({
+      knight: 2,
+      archer: 11,
+    });
+    expect(useGameStore.getState().cardCatalog.knight?.range).toBe(2);
+    expect(useGameStore.getState().cardCatalog.archer?.range).toBe(11);
+  });
+
+  it('keeps the ranges empty when the request fails', async () => {
+    holder.fetchCards = async () => {
+      throw new Error('offline');
+    };
+
+    await useGameStore.getState().loadCardRanges();
+
+    expect(useGameStore.getState().cardRanges).toEqual({});
   });
 });

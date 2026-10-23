@@ -1,23 +1,24 @@
 @import 'tailwindcss';
 
 @font-face {
-  font-family: 'Kenney Future';
-  src: url('/assets/fonts/KenneyFuture.ttf') format('truetype');
+  font-family: 'Inter';
+  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2') format('woff2');
   font-display: swap;
+  font-weight: 400 700;
 }
 
 @theme {
-  --color-ink-950: #070a10;
-  --color-ink-900: #0b0e14;
-  --color-ink-850: #10151f;
-  --color-ink-800: #151b26;
-  --color-ink-700: #1e2634;
-  --color-line: #26303f;
-  --color-gold: #d8b56a;
-  --color-gold-soft: #8a733f;
-  --color-team-left: #3b82f6;
-  --color-team-right: #ef4444;
-  --font-display: 'Kenney Future', ui-serif, Georgia, 'Times New Roman', serif;
+  --color-ink-950: #050608;
+  --color-ink-900: #0a0d14;
+  --color-ink-850: #0f1420;
+  --color-ink-800: #151b28;
+  --color-ink-700: #1e2538;
+  --color-line: #2a3348;
+  --color-gold: #e6b450;
+  --color-gold-soft: #9a7a2f;
+  --color-team-left: #4f9bff;
+  --color-team-right: #ff4f4f;
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 html,
@@ -28,11 +29,12 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-ink-900);
-  color: #e2e8f0;
+  background-color: var(--color-ink-950);
+  color: #e7e9ee;
   font-family:
     'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
@@ -42,42 +44,28 @@ body {
 
 .warland-bg {
   background:
-    radial-gradient(
-      120% 80% at 50% -20%,
-      rgba(216, 181, 106, 0.06),
-      transparent 60%
-    ),
-    radial-gradient(
-      80% 60% at 50% 120%,
-      rgba(59, 130, 246, 0.05),
-      transparent 60%
-    ),
-    var(--color-ink-900);
+    radial-gradient(140% 90% at 50% -10%, rgba(230, 180, 80, 0.08), transparent 65%),
+    radial-gradient(90% 70% at 50% 110%, rgba(79, 155, 255, 0.06), transparent 65%),
+    linear-gradient(180deg, #070a12 0%, #050608 100%);
 }
 
 .panel {
-  background: linear-gradient(
-    180deg,
-    rgba(23, 30, 43, 0.92),
-    rgba(16, 21, 31, 0.92)
-  );
-  border: 1px solid var(--color-line);
+  background: linear-gradient(180deg, rgba(21, 27, 40, 0.98) 0%, rgba(10, 13, 20, 0.98) 100%);
+  border: 1px solid rgba(42, 51, 72, 0.9);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.03) inset,
-    0 18px 40px -24px rgba(0, 0, 0, 0.9);
+    0 1px 0 rgba(255, 255, 255, 0.02) inset,
+    0 40px 80px -60px rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(12px);
 }
 
 .panel-frame {
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(23, 30, 43, 0.94),
-    rgba(15, 20, 29, 0.96)
-  );
-  border: 1px solid var(--color-line);
+  background: linear-gradient(180deg, rgba(21, 27, 40, 0.98) 0%, rgba(10, 13, 20, 0.98) 100%);
+  border: 1px solid rgba(42, 51, 72, 0.95);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 22px 48px -28px rgba(0, 0, 0, 0.95);
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 60px 120px -80px rgba(0, 0, 0, 0.98);
+  backdrop-filter: blur(14px);
 }
 
 .panel-frame::before {
@@ -85,42 +73,79 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 14px solid transparent;
-  border-image: url('/assets/kenney/ui/panel-border.png') 14 stretch;
-  opacity: 0.5;
   border-radius: inherit;
+  background: radial-gradient(120% 120% at 50% 0%, rgba(230, 180, 80, 0.08), transparent 60%);
 }
 
-.btn-kenney {
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  border: 0;
+.btn-neo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.625rem 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  transition: all 160ms ease;
+  border: 1px solid transparent;
 }
 
-.btn-img-primary {
-  background-image: url('/assets/kenney/ui/button-primary.png');
+.btn-neo-primary {
+  background: radial-gradient(120% 120% at 50% 0%, #f5c16e 0%, #b98a2f 100%);
+  color: #1a1405;
+  box-shadow: 0 10px 40px -20px rgba(245, 193, 110, 0.9);
 }
-.btn-img-secondary {
-  background-image: url('/assets/kenney/ui/button-secondary.png');
+
+.btn-neo-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 12px 50px -18px rgba(245, 193, 110, 0.95);
 }
-.btn-img-danger {
-  background-image: url('/assets/kenney/ui/button-danger.png');
+
+.btn-neo-secondary {
+  background: linear-gradient(180deg, rgba(30, 37, 56, 0.9) 0%, rgba(15, 20, 32, 0.9) 100%);
+  color: #e7e9ee;
+  border-color: rgba(58, 68, 96, 0.9);
+}
+
+.btn-neo-secondary:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(36, 44, 66, 0.95) 0%, rgba(18, 24, 38, 0.95) 100%);
+}
+
+.btn-neo-danger {
+  background: radial-gradient(120% 120% at 50% 0%, #ff6b6b 0%, #b71c1c 100%);
+  color: #fff5f5;
+}
+
+.btn-neo-ghost {
+  background: transparent;
+  color: rgba(231, 233, 238, 0.7);
+}
+
+.btn-neo-ghost:hover:not(:disabled) {
+  color: #e7e9ee;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .gold-text {
-  color: var(--color-gold);
+  background: linear-gradient(90deg, #f5c16e 0%, #ffe7b5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .hairline {
-  border-color: var(--color-line);
+  border-color: rgba(42, 51, 72, 0.8);
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a3444;
+  background: rgba(58, 68, 96, 0.9);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
@@ -130,20 +155,20 @@ body {
 @keyframes warland-pulse {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.5;
   }
   50% {
     opacity: 1;
   }
 }
 .animate-pulse-soft {
-  animation: warland-pulse 1.6s ease-in-out infinite;
+  animation: warland-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes warland-rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -151,5 +176,17 @@ body {
   }
 }
 .animate-rise {
-  animation: warland-rise 0.24s ease-out both;
+  animation: warland-rise 0.28s ease-out both;
+}
+
+@keyframes warland-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: warland-fade 0.32s ease-out both;
 }

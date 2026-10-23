@@ -22,10 +22,33 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const passwordHash = await hash(dto.password, 12);
     
-    const defaultCards = await this.db.card.findMany({
+    let defaultCards = await this.db.card.findMany({
       where: { name: { in: STARTER_CARDS.map((card) => card.name) } },
       select: { id: true },
     });
+
+    if (defaultCards.length < STARTER_CARDS.length) {
+      for (const card of STARTER_CARDS) {
+        await this.db.card.upsert({
+          where: { id: card.cardId },
+          update: {},
+          create: {
+            id: card.cardId,
+            name: card.name,
+            cost: card.cost,
+            baseHp: card.hp,
+            baseDamage: card.damage,
+            attackSpeed: card.attackSpeed,
+            movementSpeed: card.movementSpeed,
+            range: card.range,
+          },
+        });
+      }
+      defaultCards = await this.db.card.findMany({
+        where: { name: { in: STARTER_CARDS.map((card) => card.name) } },
+        select: { id: true },
+      });
+    }
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {

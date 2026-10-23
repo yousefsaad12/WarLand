@@ -362,6 +362,185 @@ describe('advanceMatch - combat and termination', () => {
   });
 });
 
+describe('attack events', () => {
+  function combatState(over: Partial<CardSnapshot> = {}) {
+    const cards = [
+      makeCard('knight', {
+        hp: 100,
+        damage: 10,
+        range: 30,
+        movementSpeed: 0,
+        ...over,
+      }),
+      deck[1],
+      deck[2],
+      deck[3],
+    ];
+    return createMatchState(
+      'match-1',
+      { playerId: 'p1', cards },
+      { playerId: 'p2', cards },
+      makeRules({ maxTicks: 50 }),
+    );
+  }
+
+  it('records an event for every attack that landed', () => {
+    let state = combatState();
+    state = advanceMatch(state, [
+      { requestId: 'a', playerId: 'p1', cardId: 'knight', x: 45, y: 50 },
+      { requestId: 'b', playerId: 'p2', cardId: 'knight', x: 55, y: 50 },
+    ]).state;
+
+    // Deploy on tick 1; the first attack lands once attack progress fills.
+    for (let i = 0; i < 15 && state.events.length === 0; i += 1) {
+      state = advanceMatch(state).state;
+    }
+
+    expect(state.events.length).toBeGreaterThan(0);
+    const event = state.events[0]!;
+    expect(event.attackerId).toMatch(/^match-1:\d+$/);
+    expect(event.targetId).toMatch(/^match-1:\d+$/);
+    expect(event.damage).toBe(10);
+    expect(event.range).toBe(30);
+    expect(event.tick).toBe(state.tick);
+  });
+
+  it('matches the reported damage to the HP change exactly', () => {
+    let state = combatState();
+    state = advanceMatch(state, [
+      { requestId: 'a', playerId: 'p1', cardId: 'knight', x: 45, y: 50 },
+      { requestId: 'b', playerId: 'p2', cardId: 'knight', x: 55, y: 50 },
+    ]).state;
+
+    for (let i = 0; i < 12; i += 1) {
+      const before = state.units.map((unit) => ({
+        id: unit.id,
+        hp: unit.hp,
+      }));
+      const next = advanceMatch(state).state;
+
+      // `next.events` lists the attacks that landed during this tick, so they
+      // must account for every point of HP that was removed this tick.
+      for (const previous of before) {
+        const after = next.units.find((unit) => unit.id === previous.id);
+        const hpAfter = after?.hp ?? 0;
+        const hpLost = previous.hp - hpAfter;
+        const eventDamage = next.events
+          .filter((event) => event.targetId === previous.id)
+          .reduce((sum, event) => sum + event.damage, 0);
+        // HP never drops below zero, so overkill is clipped.
+        expect(eventDamage).toBeGreaterThanOrEqual(hpLost);
+        expect(hpLost).toBe(Math.min(previous.hp, eventDamage));
+      }
+
+      state = next;
+    }
+  });
+
+  it('reports base hits with the BASE target and the owning side', () => {
+    const cards = [
+      makeCard('knight', { hp: 100, damage: 25, range: 60, movementSpeed: 0 }),
+      deck[1],
+      deck[2],
+      deck[3],
+    ];
+    let state = createMatchState(
+      'match-1',
+      { playerId: 'p1', cards },
+      { playerId: 'p2', cards },
+      makeRules({ maxTicks: 50 }),
+    );
+    state = advanceMatch(state, [
+      { requestId: 'a', playerId: 'p2', cardId: 'knight', x: 51, y: 50 },
+    ]).state;
+
+    for (let i = 0; i < 30 && state.events.length === 0; i += 1) {
+      state = advanceMatch(state).state;
+    }
+
+    const baseEvent = state.events.find((event) => event.targetId === 'BASE');
+    expect(baseEvent).toBeDefined();
+    expect(baseEvent!.targetSide).toBe('LEFT');
+    expect(baseEvent!.damage).toBe(25);
+    expect(state.players.LEFT.baseHp).toBeLessThan(1000);
+  });
+
+  it('reports base turret attacks with the BASE attacker', () => {
+    const cards = [
+      makeCard('knight', { hp: 100, damage: 1, range: 2, movementSpeed: 0 }),
+      deck[1],
+      deck[2],
+      deck[3],
+    ];
+    // A wide turret range lets the RIGHT base reach the LEFT unit that
+    // deployed in its own half.
+    let state = createMatchState(
+      'match-1',
+      { playerId: 'p1', cards },
+      { playerId: 'p2', cards },
+      makeRules({
+        maxTicks: 50,
+        baseTurret: { damage: 8, attackSpeed: 1, range: 60 },
+      }),
+    );
+    state = advanceMatch(state, [
+      { requestId: 'a', playerId: 'p1', cardId: 'knight', x: 45, y: 50 },
+    ]).state;
+
+    for (let i = 0; i < 40; i += 1) {
+      state = advanceMatch(state).state;
+      if (state.events.some((event) => event.attackerId === 'BASE')) {
+        break;
+      }
+    }
+
+    const turretEvent = state.events.find(
+      (event) => event.attackerId === 'BASE',
+    );
+    expect(turretEvent).toBeDefined();
+    expect(turretEvent!.attackerSide).toBe('RIGHT');
+    expect(turretEvent!.damage).toBe(8);
+    expect(turretEvent!.targetId).toMatch(/^match-1:\d+$/);
+  });
+
+  it('does not change the simulation result', () => {
+    const run = () => {
+      let state = newState(makeRules({ maxTicks: 40, ticksPerSecond: 10 }));
+      state = advanceMatch(state, [
+        { requestId: 'a', playerId: 'p1', cardId: 'knight', x: 40, y: 50 },
+        { requestId: 'b', playerId: 'p2', cardId: 'knight', x: 60, y: 50 },
+      ]).state;
+      for (let i = 0; i < 40 && state.status === 'RUNNING'; i += 1) {
+        state = advanceMatch(state).state;
+      }
+      return {
+        status: state.status,
+        tick: state.tick,
+        leftHp: state.players.LEFT.baseHp,
+        rightHp: state.players.RIGHT.baseHp,
+        units: state.units.map((unit) => `${unit.id}:${unit.hp}`),
+      };
+    };
+    expect(run()).toEqual(run());
+  });
+
+  it('exposes the events in the match view', () => {
+    let state = combatState();
+    state = advanceMatch(state, [
+      { requestId: 'a', playerId: 'p1', cardId: 'knight', x: 45, y: 50 },
+      { requestId: 'b', playerId: 'p2', cardId: 'knight', x: 55, y: 50 },
+    ]).state;
+    for (let i = 0; i < 15 && state.events.length === 0; i += 1) {
+      state = advanceMatch(state).state;
+    }
+
+    const view = toMatchView(state);
+    expect(view.events).toBeDefined();
+    expect(view.events!.length).toBe(state.events.length);
+    expect(view.events![0]!.attackerId).toBe(state.events[0]!.attackerId);
+  });
+});
+
 describe('determinism and views', () => {
   it('produces identical output for identical inputs', () => {
     const run = () => {
@@ -382,6 +561,28 @@ describe('determinism and views', () => {
     const view = toMatchView(newState());
     expect(view).not.toHaveProperty('requestLedger');
     expect(view).toHaveProperty('players.LEFT.cards');
+  });
+
+  it('reports both display identities in the match view', () => {
+    const state = createMatchState(
+      'match-1',
+      { playerId: 'p1', cards: deck, displayName: 'Ada', tag: '0007' },
+      { playerId: 'p2', cards: deck, displayName: 'Linus', tag: '0042' },
+      makeRules(),
+    );
+
+    const view = toMatchView(state);
+
+    expect(view.players.LEFT.displayName).toBe('Ada');
+    expect(view.players.LEFT.tag).toBe('0007');
+    expect(view.players.RIGHT.displayName).toBe('Linus');
+    expect(view.players.RIGHT.tag).toBe('0042');
+  });
+
+  it('reports empty identities when the setup omits them', () => {
+    const view = toMatchView(newState());
+    expect(view.players.LEFT.displayName).toBe('');
+    expect(view.players.LEFT.tag).toBe('');
   });
 
   it('cancels a running match with no winner', () => {
