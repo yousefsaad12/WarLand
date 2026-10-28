@@ -7,6 +7,7 @@ import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 import { useGameStore } from '@/store/gameStore';
+import { WarlandLogo } from '@/components/WarlandLogo';
 
 export function App() {
   const status = useSessionStore((s) => s.status);
@@ -34,10 +35,11 @@ export function App() {
 
   if (status === 'booting') {
     return (
-      <div className="warland-bg flex h-full items-center justify-center">
+      <div className="warland-bg flex min-h-[100dvh] items-center justify-center px-4">
         <div className="text-center">
-          <p className="font-display text-3xl tracking-[0.2em] gold-text">
-            WARLAND
+          <WarlandLogo className="justify-center" />
+          <p className="mt-4 text-xs uppercase tracking-[0.3em] text-slate-500">
+            Preparing the battlefield
           </p>
           <div className="mx-auto mt-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/40 border-t-gold" />
         </div>

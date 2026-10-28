@@ -29,7 +29,7 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       className={[
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold/70',
+        'min-h-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold/70',
         'disabled:cursor-not-allowed disabled:opacity-40',
         VARIANTS[variant],
         fullWidth ? 'w-full' : '',

@@ -24,7 +24,7 @@ export function Toasts() {
           key={toast.id}
           onClick={() => dismiss(toast.id)}
           className={[
-            'animate-rise pointer-events-auto flex max-w-md items-center gap-2 rounded-lg border px-4 py-2 text-sm shadow-lg backdrop-blur',
+            'animate-rise pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-lg border px-4 py-2 text-left text-sm shadow-lg backdrop-blur break-words',
             STYLES[toast.kind],
           ].join(' ')}
         >

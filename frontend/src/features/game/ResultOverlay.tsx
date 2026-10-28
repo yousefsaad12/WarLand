@@ -62,10 +62,10 @@ export function ResultOverlay({
   const style = OUTCOME_STYLE[outcome];
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-ink-950/85 p-3 backdrop-blur-sm">
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-ink-950/85 p-2 backdrop-blur-sm sm:p-3">
       <div
         className={[
-          'animate-rise panel-frame max-h-full w-full max-w-md overflow-y-auto rounded-2xl border p-6 text-center',
+          'animate-rise panel-frame max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-2xl border p-4 text-center sm:max-h-[calc(100dvh-1.5rem)] sm:p-6',
           style.border,
           style.glow,
         ].join(' ')}
@@ -208,11 +208,11 @@ function CardRewardRow({ card }: { card: CardProgressReward }) {
         <CardArt cardId={card.cardId} className="h-full w-full" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="truncate text-sm font-semibold text-slate-200">
             {card.name}
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="ml-auto flex items-center gap-1.5">
             {showLevelUp && (
               <span className="rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gold animate-pulse-soft">
                 Level up

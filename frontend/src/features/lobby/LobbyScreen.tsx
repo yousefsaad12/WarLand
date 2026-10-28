@@ -16,6 +16,7 @@ import { useMatchmakingStore } from '@/store/matchmakingStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useGameStore } from '@/store/gameStore';
 import { useUiStore } from '@/store/uiStore';
+import { WarlandLogo } from '@/components/WarlandLogo';
 
 const CONNECTION_LABEL: Record<string, { text: string; tone: string }> = {
   idle: { text: 'Offline', tone: 'bg-slate-500' },
@@ -118,24 +119,14 @@ export function LobbyScreen() {
   const canQueue = connection === 'connected' && queue === 'idle';
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden overflow-y-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(140%_90%_at_50%_-10%,rgba(230,180,80,0.08),transparent_65%),radial-gradient(90%_70%_at_50%_110%,rgba(79,155,255,0.06),transparent_65%),linear-gradient(180deg,#070a12_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto,auto]">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-x-hidden overflow-y-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(140%_90%_at_50%_-10%,rgba(230,180,80,0.08),transparent_65%),radial-gradient(90%_70%_at_50%_110%,rgba(79,155,255,0.06),transparent_65%),linear-gradient(180deg,#070a12_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto,auto]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(120%_120%_at_50%_0%,rgba(245,193,110,0.12),transparent_70%)]" />
-      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-gradient-to-b from-[#0a0e17]/75 to-transparent px-4 py-3 shadow-[0_16px_40px_-34px_rgba(0,0,0,0.95)] sm:px-6 sm:py-5">
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 bg-gradient-to-b from-[#0a0e17]/75 to-transparent px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_16px_40px_-34px_rgba(0,0,0,0.95)] sm:px-6 sm:py-5">
         <div className="flex items-center gap-3">
-          <span
-            className="grid h-9 w-9 place-items-center rounded-xl border border-gold/40 bg-gradient-to-br from-gold/20 to-gold/[0.03] text-gold shadow-[0_0_24px_-12px_rgba(245,193,110,0.9)]"
-            aria-hidden="true"
-          >
-            <Icon name="target" className="h-4 w-4" />
-          </span>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-[0.3em] sm:tracking-[0.6em] uppercase gold-text">
-              Warland
-            </h1>
-            <p className="mt-0.5 text-[9px] sm:text-[10px] uppercase tracking-[0.4em] sm:tracking-[0.8em] text-slate-500">
-              Tactical Lane Warfare
-            </p>
-          </div>
+          <WarlandLogo compact />
+          <p className="hidden text-[10px] uppercase tracking-[0.35em] text-slate-500 sm:block">
+            Tactical Lane Warfare
+          </p>
         </div>
         <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:gap-4">
           <AudioToggle />
@@ -153,7 +144,7 @@ export function LobbyScreen() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-5 sm:px-6 sm:py-5 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="flex flex-col gap-6">
           <Panel className="relative min-h-[232px] motion-safe:animate-rise p-5 sm:p-8">
             <div
@@ -162,12 +153,12 @@ export function LobbyScreen() {
             >
               <Icon name="shield" className="h-28 w-28" />
             </div>
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-3">
               <div className="relative z-10">
                 <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
                   Commander
                 </p>
-                <h2 className="mt-2 text-2xl sm:text-4xl font-semibold text-slate-100 truncate max-w-[240px] sm:max-w-none">
+                <h2 className="mt-2 max-w-[calc(100vw-9rem)] truncate text-2xl font-semibold text-slate-100 sm:max-w-none sm:text-4xl">
                   {identity ? `${identity.displayName}#${identity.tag}` : '—'}
                 </h2>
                 <p className="mt-1 text-xs sm:text-sm text-slate-500">
@@ -466,12 +457,12 @@ function CardInspectModal({ owned, onClose }: CardInspectModalProps) {
   return (
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-4 pb-4 sm:pb-0"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-0"
       onClick={onClose}
     >
       {/* Modal panel */}
       <div
-        className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-[#0d0f15] shadow-2xl overflow-hidden"
+        className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0f15] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Gold top glow */}

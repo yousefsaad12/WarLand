@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/Button';
 import { Panel } from '@/components/Panel';
 import { useSessionStore } from '@/store/sessionStore';
+import { WarlandLogo } from '@/components/WarlandLogo';
 
 type Mode = 'login' | 'register';
 
@@ -73,26 +74,46 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="relative flex min-h-full items-center justify-center overflow-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(140%_90%_at_50%_-10%,rgba(230,180,80,0.08),transparent_65%),linear-gradient(180deg,#070a12_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto] p-4">
-      <div className="relative grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(360px,0.75fr)] lg:gap-20">
-        <header className="mb-7 text-center lg:mb-0 lg:text-left">
-          <div
-            className="mx-auto mb-4 flex h-7 w-[5.5rem] items-center justify-center gap-1.5 lg:mx-0"
-            aria-hidden="true"
-          >
-            <span className="h-1 w-[1.1rem] -skew-x-[28deg] bg-gold/45" />
-            <span className="h-1 w-[1.8rem] -skew-x-[28deg] bg-gold" />
-            <span className="h-1 w-[1.1rem] -skew-x-[28deg] bg-gold/45" />
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-auto bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px),radial-gradient(70%_75%_at_18%_15%,rgba(54,112,190,0.18),transparent_72%),radial-gradient(65%_70%_at_88%_85%,rgba(230,180,80,0.12),transparent_70%),linear-gradient(180deg,#080c16_0%,#050608_100%)] bg-[length:52px_52px,52px_52px,auto,auto,auto] p-3 sm:p-8">
+      <div className="relative grid w-full max-w-6xl items-center gap-7 sm:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:gap-20">
+        <section className="animate-rise text-center lg:text-left">
+          <WarlandLogo className="justify-center lg:justify-start" />
+          <div className="mt-7 sm:mt-10 max-w-xl">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold">
+              Strategy meets the arena
+            </p>
+            <h1 className="font-display text-[clamp(2.25rem,8vw,3.75rem)] font-bold leading-[1.08] tracking-tight text-slate-100">
+              Build your army.
+              <span className="block gold-text">Own the lanes.</span>
+            </h1>
+            <p className="mt-6 max-w-lg text-base leading-7 text-slate-400 sm:text-lg">
+              A fast, competitive lane battler where every deployment matters.
+              Read the field, outplay your rival, and make the final push.
+            </p>
           </div>
-          <h1 className="font-display text-5xl font-bold tracking-[0.2em] gold-text">
-            WARLAND
-          </h1>
-          <p className="mt-2 text-xs uppercase tracking-[0.35em] text-slate-500">
-            Two-sided lane battles
-          </p>
-        </header>
+          <div className="mt-9 grid max-w-lg grid-cols-3 gap-3 text-left">
+            <Stat value="1v1" label="Live matches" />
+            <Stat value="4" label="Battle units" />
+            <Stat value="∞" label="Ways to win" />
+          </div>
+          <div className="mt-8 hidden items-center gap-3 text-xs text-slate-500 sm:flex">
+            <span className="h-px w-8 bg-gold/50" />
+            Server-authoritative. Fair by design.
+          </div>
+        </section>
 
-        <Panel className="shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_30px_80px_-46px_rgba(0,0,0,0.98),0_0_70px_-50px_rgba(230,180,80,0.45)] p-6 sm:p-8">
+        <Panel className="animate-rise shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_30px_80px_-46px_rgba(0,0,0,0.98),0_0_70px_-50px_rgba(230,180,80,0.45)] p-4 sm:p-8">
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+              Welcome, commander
+            </p>
+            <h2 className="mt-2 font-display text-2xl font-semibold text-slate-100">
+              Enter the battlefield
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Sign in to continue your campaign.
+            </p>
+          </div>
           <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-ink-900/70 p-1">
             {(['login', 'register'] as const).map((m) => (
               <button
@@ -159,11 +180,22 @@ export function AuthScreen() {
           </form>
         </Panel>
 
-        <p className="mt-4 text-center text-xs text-slate-600">
+        <p className="mt-4 text-center text-xs text-slate-600 lg:col-span-2">
           Server-authoritative matches. No gameplay simulation runs in your
           browser.
         </p>
       </div>
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3">
+      <p className="font-display text-xl font-semibold text-slate-200">{value}</p>
+      <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
     </div>
   );
 }
