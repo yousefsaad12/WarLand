@@ -122,24 +122,24 @@ export class MatchHud {
       this.lastRightRatio = -1;
     }
 
-    const enemy: GameSide = localSide === 'LEFT' ? 'RIGHT' : 'LEFT';
+    const leftPlayer = view.players.LEFT;
+    const rightPlayer = view.players.RIGHT;
     const you = view.players[localSide];
-    const them = view.players[enemy];
 
     this.leftName.setText(
-      `${label(you)}${localSide === 'LEFT' ? '  ·  YOU' : ''}`,
+      `${label(leftPlayer)}${localSide === 'LEFT' ? '  ·  YOU' : ''}`,
     );
     this.rightName.setText(
-      `${label(them)}${localSide === 'RIGHT' ? '  ·  YOU' : ''}`,
+      `${label(rightPlayer)}${localSide === 'RIGHT' ? '  ·  YOU' : ''}`,
     );
     this.leftName.setColor(localSide === 'LEFT' ? '#e8f1ff' : '#f3d6d6');
     this.rightName.setColor(localSide === 'RIGHT' ? '#e8f1ff' : '#f3d6d6');
 
-    this.leftHpText.setText(`${Math.round(you.baseHp)} HP`);
-    this.rightHpText.setText(`${Math.round(them.baseHp)} HP`);
+    this.leftHpText.setText(`${Math.round(leftPlayer.baseHp)} HP`);
+    this.rightHpText.setText(`${Math.round(rightPlayer.baseHp)} HP`);
 
-    const lr = Math.max(0, Math.min(1, you.baseHp / BASE_MAX_HP));
-    const rr = Math.max(0, Math.min(1, them.baseHp / BASE_MAX_HP));
+    const lr = Math.max(0, Math.min(1, leftPlayer.baseHp / BASE_MAX_HP));
+    const rr = Math.max(0, Math.min(1, rightPlayer.baseHp / BASE_MAX_HP));
     this.syncHpBar(
       this.leftBar,
       this.leftGhost,

@@ -65,7 +65,7 @@ export function GameScreen() {
       </div>
 
       {view && (
-        <div className="pointer-events-none absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-20 flex max-w-[calc(100%-1rem)] items-center gap-1 sm:right-4 sm:top-4">
+        <div className="pointer-events-none absolute right-2 top-[max(4.5rem,calc(env(safe-area-inset-top)+4rem))] z-20 flex max-w-[calc(100%-1rem)] items-center gap-1 sm:right-4 sm:top-[calc(4.5rem+env(safe-area-inset-top))]">
           <div className="pointer-events-auto flex flex-wrap justify-end gap-1">
             <AudioToggle />
             <MotionToggle />
