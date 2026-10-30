@@ -763,7 +763,7 @@ export class ArenaView {
   private drawBases() {
     const keepHeight = Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220);
     const keepScale = keepHeight / 128;
-    const towerHeight = keepHeight * 0.64;
+    const towerHeight = keepHeight * 0.48;
     const platformW = keepHeight * 1.72;
     const platformH = platformW * 0.4;
 
