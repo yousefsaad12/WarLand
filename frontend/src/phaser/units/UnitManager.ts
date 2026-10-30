@@ -132,11 +132,12 @@ export class UnitManager {
       }
 
       if (!reduceMotion && !u.attacking) {
-        const t = this.scene.time.now;
-        const bob = Math.sin(t / 400 + u.idlePhase) * 1.2;
-        u.sprite.setY(bob);
         const shadowScale =
-          1 + Math.sin(t / 400 + u.idlePhase + Math.PI) * 0.06;
+          1 +
+          Math.sin(
+            this.scene.time.now / 400 + u.idlePhase + Math.PI,
+          ) *
+            0.06;
         u.shadow.setScale(shadowScale, shadowScale * 0.8);
       }
 
@@ -352,7 +353,7 @@ export class UnitManager {
     const container = this.scene.add.container(pos.x, pos.y);
     this.layer.add(container);
 
-    const shadow = this.scene.add.ellipse(0, 10, 48, 17, 0x000000, 0.32);
+    const shadow = this.scene.add.ellipse(0, 4, 48, 17, 0x000000, 0.32);
     const factionColor = teamColor(unit.owner);
     const ring = this.scene.add.circle(
       0,
