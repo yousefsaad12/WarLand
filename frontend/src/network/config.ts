@@ -1,6 +1,10 @@
-const raw =
-  import.meta.env.VITE_SERVER_URL ??
-  'https://warland-cuc0beczf6bsajcr.uaenorth-01.azurewebsites.net';
+const raw = __WARLAND_SERVER_URL__;
+
+if (!raw?.trim()) {
+  throw new Error(
+    'SERVER_URL is required. Add it to frontend/.env before building.',
+  );
+}
 
 /** Backend base URL (no trailing slash). Used for HTTP and both Socket.IO namespaces. */
 export const SERVER_URL = raw.replace(/\/+$/, '');

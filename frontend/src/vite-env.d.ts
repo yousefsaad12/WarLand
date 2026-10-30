@@ -1,9 +1,3 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_SERVER_URL?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+declare const __WARLAND_SERVER_URL__: string;
