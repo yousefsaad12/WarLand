@@ -83,10 +83,13 @@ export class BattleScene extends Phaser.Scene {
     this.syncFromState();
   }
 
-  override update(time: number) {
+  override update(time: number, delta: number) {
     if (!this.ready) return;
-    this.tickMs = this.state.view ? 1000 / this.state.view.ticksPerSecond : 100;
+    this.tickMs = this.state.view
+      ? 1000 / this.state.view.ticksPerSecond
+      : 100;
     this.arena.update(time, this.state.reduceMotion);
+    this.units.update(delta, this.state.reduceMotion);
   }
 
   setState(next: Partial<BattleState>) {

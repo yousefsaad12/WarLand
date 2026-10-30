@@ -28,6 +28,12 @@ interface UnitVisual {
   lastDustAt: number;
   spawnTime: number;
   idlePhase: number;
+  targetX: number;
+  targetY: number;
+  transitionStartX: number;
+  transitionStartY: number;
+  transitionElapsed: number;
+  transitionDuration: number;
 }
 
 interface UnitsManifest {
@@ -87,6 +93,62 @@ export class UnitManager {
       'y',
       (a: UnitVisual['container'], b: UnitVisual['container']) => a.y - b.y,
     );
+  }
+
+  update(delta: number, reduceMotion: boolean) {
+    const frameDelta = Math.min(Math.max(delta, 0), 100);
+
+    for (const u of this.units.values()) {
+      if (reduceMotion) {
+        u.container.setPosition(u.targetX, u.targetY);
+        u.transitionElapsed = u.transitionDuration;
+      } else if (u.transitionElapsed < u.transitionDuration) {
+        u.transitionElapsed = Math.min(
+          u.transitionDuration,
+          u.transitionElapsed + frameDelta,
+        );
+        const progress =
+          u.transitionDuration > 0
+            ? u.transitionElapsed / u.transitionDuration
+            : 1;
+        u.container.setPosition(
+          Phaser.Math.Linear(u.transitionStartX, u.targetX, progress),
+          Phaser.Math.Linear(u.transitionStartY, u.targetY, progress),
+        );
+      }
+
+      const distance = Phaser.Math.Distance.Between(
+        u.container.x,
+        u.container.y,
+        u.targetX,
+        u.targetY,
+      );
+      if (!reduceMotion && distance > 0.5) {
+        const now = this.scene.time.now;
+        if (now - u.lastDustAt > 500) {
+          u.lastDustAt = now;
+          this.vfx.puffDust(u.container.x, u.container.y - 2, 2);
+        }
+      }
+
+      if (!reduceMotion && !u.attacking) {
+        const t = this.scene.time.now;
+        const bob = Math.sin(t / 400 + u.idlePhase) * 1.2;
+        u.sprite.setY(bob);
+        const shadowScale =
+          1 + Math.sin(t / 400 + u.idlePhase + Math.PI) * 0.06;
+        u.shadow.setScale(shadowScale, shadowScale * 0.8);
+      }
+
+      const ratio = u.maxHp > 0 ? u.hp / u.maxHp : 1;
+      if (!reduceMotion && ratio < 0.33 && ratio > 0) {
+        u.sprite.setTint(
+          Math.sin(this.scene.time.now / 200) > 0.3 ? 0xffaaaa : 0xffffff,
+        );
+      } else if (ratio >= 0.33) {
+        u.sprite.clearTint();
+      }
+    }
   }
 
   playAttack(
@@ -415,6 +477,12 @@ export class UnitManager {
       lastDustAt: 0,
       spawnTime: this.scene.time.now,
       idlePhase: Math.random() * Math.PI * 2,
+      targetX: pos.x,
+      targetY: pos.y,
+      transitionStartX: pos.x,
+      transitionStartY: pos.y,
+      transitionElapsed: 0,
+      transitionDuration: 0,
     });
   }
 
@@ -438,48 +506,23 @@ export class UnitManager {
     u.hpBar.setFillStyle(ratio < 0.33 ? COLORS.hpLow : COLORS.hp);
 
     const pos = mapToScreen(layout, unit.x, unit.y);
-    const dx = pos.x - u.container.x;
-    const dy = pos.y - u.container.y;
-    const isMoving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
-    if (isMoving) {
-      this.scene.tweens.killTweensOf(u.container);
-      this.scene.tweens.add({
-        targets: u.container,
-        x: pos.x,
-        y: pos.y,
-        duration: Math.max(40, tickMs * 0.85),
-        ease: 'Cubic.easeOut',
-      });
-      if (Math.abs(dx) > 2) {
-        u.sprite.setFlipX(dx < 0);
-      }
-      const now = this.scene.time.now;
-      if (!reduceMotion && now - u.lastDustAt > 500) {
-        u.lastDustAt = now;
-        this.vfx.puffDust(u.container.x, u.container.y - 2, 2);
-      }
+    const dx = pos.x - u.targetX;
+    const dy = pos.y - u.targetY;
+    const targetChanged = Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01;
+    if (targetChanged) {
+      u.transitionStartX = u.container.x;
+      u.transitionStartY = u.container.y;
+      u.transitionElapsed = 0;
+      u.transitionDuration = Math.max(1, tickMs);
     }
-
-    // Subtle idle bob — sprite breathes gently, shadow pulses
-    if (!reduceMotion && !u.attacking) {
-      const t = this.scene.time.now;
-      const bob = Math.sin(t / 400 + u.idlePhase) * 1.2;
-      u.sprite.setY(bob);
-      // Shadow squash follows bob
-      const shadowScale = 1 + Math.sin(t / 400 + u.idlePhase + Math.PI) * 0.06;
-      u.shadow.setScale(shadowScale, shadowScale * 0.8);
+    u.targetX = pos.x;
+    u.targetY = pos.y;
+    if (Math.abs(dx) > 2) {
+      u.sprite.setFlipX(dx < 0);
     }
-
-    // Low HP visual feedback — red tint flicker
-    if (!reduceMotion && ratio < 0.33 && ratio > 0) {
-      const flicker = Math.sin(this.scene.time.now / 200) > 0.3;
-      if (flicker) {
-        u.sprite.setTint(0xffaaaa);
-      } else {
-        u.sprite.clearTint();
-      }
-    } else if (ratio >= 0.33) {
-      u.sprite.clearTint();
+    if (reduceMotion) {
+      u.container.setPosition(pos.x, pos.y);
+      u.transitionElapsed = u.transitionDuration;
     }
   }
 
