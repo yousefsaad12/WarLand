@@ -20,6 +20,8 @@ const GRID_X = 26;
 const GRID_Y = 13;
 const AREA_PAD = 22;
 const FRAME_PAD = 8;
+const TOWER_DISPLAY_WIDTH = 58;
+const TOWER_DISPLAY_HEIGHT = 112;
 
 interface BaseVisual {
   keep: Phaser.GameObjects.Sprite;
@@ -763,7 +765,7 @@ export class ArenaView {
   private drawBases() {
     const keepHeight = Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220);
     const keepScale = keepHeight / 128;
-    const towerHeight = keepHeight * 0.48;
+    const towerHeight = TOWER_DISPLAY_HEIGHT;
     const platformW = keepHeight * 1.72;
     const platformH = platformW * 0.4;
 
@@ -848,8 +850,8 @@ export class ArenaView {
       const makeTower = (tx: number) => {
         const key = side === 'LEFT' ? 'tiny_tower_blue' : 'tiny_tower_red';
         const tower = this.scene.add.sprite(tx, platformY + 2, key);
-        tower.setOrigin(0.5, 0.92);
-        tower.setDisplaySize(towerHeight * 0.5, towerHeight);
+        tower.setOrigin(0.5, 1);
+        tower.setDisplaySize(TOWER_DISPLAY_WIDTH, TOWER_DISPLAY_HEIGHT);
         if (side === 'RIGHT') tower.setFlipX(true);
         this.root.add(tower);
         return tower;
