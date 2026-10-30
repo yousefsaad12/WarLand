@@ -37,7 +37,7 @@ export class VfxManager {
     });
 
     this.emitters.dust = this.make({
-      texture: 'fx_muzzle',
+      texture: 'fx_tiny_dust',
       speed: { min: 16, max: 42 },
       angle: { min: -125, max: -55 },
       scale: { start: 0.16, end: 0.07 },
@@ -48,7 +48,7 @@ export class VfxManager {
     });
 
     this.emitters.death = this.make({
-      texture: 'fx_star',
+      texture: 'fx_tiny_explosion',
       speed: { min: 40, max: 90 },
       angle: { min: 0, max: 360 },
       scale: { start: 0.2, end: 0.02 },
@@ -109,7 +109,7 @@ export class VfxManager {
 
     // Base fire embers when damaged
     this.emitters.baseFire = this.make({
-      texture: 'fx_spark',
+      texture: 'fx_tiny_fire',
       speed: { min: 20, max: 55 },
       angle: { min: -130, max: -50 },
       scale: { start: 0.12, end: 0.02 },

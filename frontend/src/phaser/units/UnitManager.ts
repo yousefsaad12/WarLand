@@ -2,7 +2,13 @@ import Phaser from 'phaser';
 import type { AttackEvent, GameSide, UnitView } from '@/network/protocol';
 import { sfx } from '../audio/SfxManager';
 import { ArenaLayout, MAP_CENTER, mapToScreen } from '../coords';
-import { CARD_ACCENT, COLORS, FONT_DISPLAY, UNIT_BODY_HEIGHT } from '../theme';
+import {
+  CARD_ACCENT,
+  COLORS,
+  FONT_DISPLAY,
+  teamColor,
+  UNIT_BODY_HEIGHT,
+} from '../theme';
 import type { VfxManager } from '../vfx/VfxManager';
 
 interface UnitVisual {
@@ -10,6 +16,7 @@ interface UnitVisual {
   sprite: Phaser.GameObjects.Sprite;
   shadow: Phaser.GameObjects.Ellipse;
   ring: Phaser.GameObjects.Arc;
+  teamGlow: Phaser.GameObjects.Image;
   hpBg: Phaser.GameObjects.Rectangle;
   hpBar: Phaser.GameObjects.Rectangle;
   cardId: string;
@@ -132,13 +139,20 @@ export class UnitManager {
     } else if (attacker && !attacker.attacking) {
       attacker.attacking = true;
       this.applyAttackScale(attacker);
-      if (attacker.sprite.anims.exists(`${attacker.cardId}_attack`)) {
-        attacker.sprite.play(`${attacker.cardId}_attack`);
+      const attackKey = this.animationKey(
+        attacker.owner,
+        attacker.cardId,
+        'attack',
+      );
+      if (attacker.sprite.anims.exists(attackKey)) {
+        attacker.sprite.play(attackKey);
         attacker.sprite.once('animationcomplete', () => {
           attacker.attacking = false;
           if (attacker.sprite.scene) {
             this.applyWalkScale(attacker);
-            attacker.sprite.play(`${attacker.cardId}_walk`);
+            attacker.sprite.play(
+              this.animationKey(attacker.owner, attacker.cardId, 'walk'),
+            );
           }
         });
       } else {
@@ -190,7 +204,7 @@ export class UnitManager {
           : targetPos;
       const bolt = this.scene.add.image(from.x, from.y, 'fx_spark');
       bolt.setScale(0.4);
-      bolt.setTint(attackerSide === 'RIGHT' ? 0xffd08a : 0xbfe0ff);
+      bolt.setTint(teamColor(attackerSide ?? 'LEFT'));
       bolt.setRotation(Math.atan2(targetPos.y - from.y, targetPos.x - from.x));
       bolt.setDepth(18);
       const midX = (from.x + targetPos.x) / 2;
@@ -277,18 +291,26 @@ export class UnitManager {
     this.layer.add(container);
 
     const shadow = this.scene.add.ellipse(0, 6, 26, 10, 0x000000, 0.32);
+    const factionColor = teamColor(unit.owner);
     const ring = this.scene.add.circle(
       0,
       4,
       14,
-      unit.owner === 'LEFT' ? COLORS.teamLeft : COLORS.teamRight,
-      0.2,
+      factionColor,
+      0.3,
     );
-    const sprite = this.scene.add.sprite(0, 0, `${unit.cardId}_walk`);
+    const teamGlow = this.scene.add
+      .image(0, 2, 'fx_radial_soft')
+      .setDisplaySize(42, 24)
+      .setTint(factionColor)
+      .setAlpha(0.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const walkKey = this.animationKey(unit.owner, unit.cardId, 'walk');
+    const sprite = this.scene.add.sprite(0, 0, walkKey);
     sprite.setOrigin(0.5, 1);
     const baseScale = this.scaleFor(unit.cardId, 'walk');
     sprite.setScale(baseScale);
-    sprite.play(`${unit.cardId}_walk`);
+    sprite.play(walkKey);
     if (unit.owner === 'RIGHT') sprite.setFlipX(true);
 
     const hpBg = this.scene.add.rectangle(
@@ -305,7 +327,7 @@ export class UnitManager {
       .setOrigin(0, 0.5);
     hpBar.setVisible(false);
 
-    container.add([shadow, ring, sprite, hpBg, hpBar]);
+    container.add([teamGlow, shadow, ring, sprite, hpBg, hpBar]);
 
     if (!reduceMotion) {
       // Dramatic spawn-in: scale up with bounce + fade in
@@ -330,6 +352,15 @@ export class UnitManager {
       // Team ring pulses
       this.scene.tweens.add({
         targets: ring,
+        alpha: 0.5,
+        scale: 1.12,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.scene.tweens.add({
+        targets: teamGlow,
         alpha: 0.34,
         scale: 1.12,
         duration: 900,
@@ -372,6 +403,7 @@ export class UnitManager {
       sprite,
       shadow,
       ring,
+      teamGlow,
       hpBg,
       hpBar,
       cardId: unit.cardId,
@@ -463,7 +495,7 @@ export class UnitManager {
     this.vfx.expandRing(
       u.container.x,
       u.container.y + 2,
-      u.owner === 'LEFT' ? 0x4f9bff : 0xff4f4f,
+      teamColor(u.owner),
       34,
       360,
     );
@@ -600,6 +632,14 @@ export class UnitManager {
       UnitsManifest | undefined;
     const body = manifest?.units[cardId]?.[kind].bodyHeight ?? 32;
     return UNIT_BODY_HEIGHT / body;
+  }
+
+  private animationKey(
+    owner: GameSide,
+    cardId: string,
+    kind: 'walk' | 'attack',
+  ): string {
+    return `${owner === 'RIGHT' ? 'right' : 'left'}_${cardId}_${kind}`;
   }
 
   private applyWalkScale(

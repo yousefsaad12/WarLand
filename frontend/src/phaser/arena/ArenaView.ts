@@ -9,7 +9,7 @@ import {
   computeArenaLayout,
   mapToScreen,
 } from '../coords';
-import { COLORS } from '../theme';
+import { COLORS, teamColor } from '../theme';
 import { sfx } from '../audio/SfxManager';
 import type { VfxManager } from '../vfx/VfxManager';
 import { ensureArenaTextures } from './textures';
@@ -192,7 +192,9 @@ export class ArenaView {
     if (!base) return;
     const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
     base.hpFill.width = Math.max(0, base.hpWidth * ratio);
-    base.hpFill.setFillStyle(ratio < 0.33 ? COLORS.hpLow : COLORS.gold);
+    base.hpFill.setFillStyle(
+      ratio < 0.33 ? COLORS.hpLow : teamColor(side),
+    );
 
     base.keep.setTint(
       ratio < 0.33 ? 0xffb8ad : ratio < 0.66 ? 0xffe3d6 : 0xffffff,
@@ -472,7 +474,7 @@ export class ArenaView {
     const { x, width } = this.layout;
     const cellW = width / GRID_X;
     const cellH = (this.playBottom - this.playTop) / GRID_Y;
-    const grass = ['grass1', 'grass2', 'grass3', 'grass4'];
+    const grass = ['tiny_ground'];
     const dirt = ['dirt1', 'dirt2'];
     const tints = [0xffffff, 0xf4ffe7, 0xe7f5d7, 0xfbfff2, 0xdcefd0];
 
@@ -568,15 +570,15 @@ export class ArenaView {
     this.root.add(banks);
 
     const base = this.scene.add
-      .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'water1')
+    .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'tiny_water')
       .setOrigin(0)
-      .setTint(0x9fd6ef)
+    .setTint(0x9bd9ef)
       .setAlpha(0.96);
     this.root.add(base);
     this.waterTiles.push(base);
 
     const shimmer = this.scene.add
-      .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'water2')
+      .tileSprite(cx - riverW / 2, y - 10, riverW, height + 20, 'tiny_water')
       .setOrigin(0)
       .setTint(0xe8fbff)
       .setAlpha(0.24);
@@ -762,7 +764,6 @@ export class ArenaView {
     const keepHeight = Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220);
     const keepScale = keepHeight / 128;
     const towerHeight = keepHeight * 0.64;
-    const towerScale = towerHeight / 64;
     const platformW = keepHeight * 1.72;
     const platformH = platformW * 0.4;
 
@@ -844,16 +845,17 @@ export class ArenaView {
         .setAlpha(0.4);
       this.root.add(shadowTowers);
 
-      const makeTower = (tx: number, key: string) => {
+      const makeTower = (tx: number) => {
+        const key = side === 'LEFT' ? 'tiny_tower_blue' : 'tiny_tower_red';
         const tower = this.scene.add.sprite(tx, platformY + 2, key);
         tower.setOrigin(0.5, 0.92);
-        tower.setScale(towerScale);
+        tower.setDisplaySize(towerHeight * 0.5, towerHeight);
         if (side === 'RIGHT') tower.setFlipX(true);
         this.root.add(tower);
         return tower;
       };
-      makeTower(pos.x + dir * platformW * 0.36, 'tower_square');
-      makeTower(pos.x - dir * platformW * 0.36, 'tower_round');
+      makeTower(pos.x + dir * platformW * 0.36);
+      makeTower(pos.x - dir * platformW * 0.36);
 
       const gate = this.scene.add.graphics();
       gate.fillStyle(0x090d15, 0.9);
@@ -917,18 +919,19 @@ export class ArenaView {
       const warm = this.scene.add
         .image(pos.x, pos.y - keepHeight * 0.18, 'fx_radial_glow')
         .setDisplaySize(keepHeight * 0.95, keepHeight * 0.9)
-        .setTint(0xffb066)
-        .setAlpha(0.16)
+        .setTint(teamColor(side))
+        .setAlpha(0.2)
         .setBlendMode(Phaser.BlendModes.ADD);
       this.root.add(warm);
 
       const keep = this.scene.add.sprite(
         pos.x,
         pos.y + platformH * 0.3,
-        'keep',
+        side === 'LEFT' ? 'tiny_castle_blue' : 'tiny_castle_red',
       );
       keep.setOrigin(0.5, 0.9);
-      keep.setScale(keepScale);
+      keep.setDisplaySize(keepHeight * 1.15, keepHeight);
+      if (side === 'RIGHT') keep.setFlipX(true);
       this.root.add(keep);
 
       const crystalBaseY = keep.y - keepHeight * 0.86;
@@ -995,10 +998,10 @@ export class ArenaView {
         const torchGlow = this.scene.add
           .image(tx, ty, 'fx_radial_glow')
           .setDisplaySize(keepHeight * 0.3, keepHeight * 0.3)
-          .setTint(0xff8a3c)
+          .setTint(teamColor(side))
           .setAlpha(0.7)
           .setBlendMode(Phaser.BlendModes.ADD);
-        const core = this.scene.add.circle(tx, ty, 3.4, 0xffc16a, 1);
+        const core = this.scene.add.circle(tx, ty, 3.4, teamColor(side), 1);
         this.root.add(torchGlow);
         this.root.add(core);
         torches.push({ glow: torchGlow, core });
@@ -1022,7 +1025,7 @@ export class ArenaView {
       );
       hpBg.setStrokeStyle(1, 0x3a445f, 0.9);
       const hpFill = this.scene.add
-        .rectangle(pos.x - hpWidth / 2, hpY, hpWidth, 6, COLORS.gold)
+        .rectangle(pos.x - hpWidth / 2, hpY, hpWidth, 6, teamColor(side))
         .setOrigin(0, 0.5);
       this.root.add(hpBg);
       this.root.add(hpFill);

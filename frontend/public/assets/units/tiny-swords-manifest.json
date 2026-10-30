@@ -1,0 +1,84 @@
+{
+  "units": {
+    "knight": {
+      "walk": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Lancer/Lancer_Run.png",
+        "frames": 6,
+        "width": 320,
+        "height": 64,
+        "anchorY": 1,
+        "bodyHeight": 54,
+        "fps": 10
+      },
+      "attack": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Lancer/Lancer_Down_Attack.png",
+        "frames": 3,
+        "width": 320,
+        "height": 64,
+        "anchorY": 1,
+        "bodyHeight": 54,
+        "fps": 10
+      }
+    },
+    "guard": {
+      "walk": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Warrior/Warrior_Run.png",
+        "frames": 6,
+        "width": 192,
+        "height": 32,
+        "anchorY": 1,
+        "bodyHeight": 30,
+        "fps": 10
+      },
+      "attack": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Warrior/Warrior_Attack1.png",
+        "frames": 4,
+        "width": 192,
+        "height": 32,
+        "anchorY": 1,
+        "bodyHeight": 30,
+        "fps": 10
+      }
+    },
+    "scout": {
+      "walk": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Monk/Run.png",
+        "frames": 6,
+        "width": 128,
+        "height": 48,
+        "anchorY": 1,
+        "bodyHeight": 42,
+        "fps": 10
+      },
+      "attack": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Monk/Heal.png",
+        "frames": 11,
+        "width": 192,
+        "height": 48,
+        "anchorY": 1,
+        "bodyHeight": 42,
+        "fps": 10
+      }
+    },
+    "archer": {
+      "walk": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Archer/Archer_Run.png",
+        "frames": 6,
+        "width": 128,
+        "height": 48,
+        "anchorY": 1,
+        "bodyHeight": 42,
+        "fps": 10
+      },
+      "attack": {
+        "file": "/assets/tiny-swords/Units/Blue Units/Archer/Archer_Shoot.png",
+        "frames": 12,
+        "width": 128,
+        "height": 48,
+        "anchorY": 1,
+        "bodyHeight": 42,
+        "fps": 10
+      }
+    }
+  }
+}

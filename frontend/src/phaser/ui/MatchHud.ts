@@ -14,6 +14,7 @@ import {
   FONT_DISPLAY,
   FONT_MONO,
   FONT_UI,
+  teamTextColor,
 } from '../theme';
 
 interface HudState {
@@ -132,8 +133,8 @@ export class MatchHud {
     this.rightName.setText(
       `${label(rightPlayer)}${localSide === 'RIGHT' ? '  ·  YOU' : ''}`,
     );
-    this.leftName.setColor(localSide === 'LEFT' ? '#e8f1ff' : '#f3d6d6');
-    this.rightName.setColor(localSide === 'RIGHT' ? '#e8f1ff' : '#f3d6d6');
+    this.leftName.setColor(teamTextColor('LEFT'));
+    this.rightName.setColor(teamTextColor('RIGHT'));
 
     this.leftHpText.setText(`${Math.round(leftPlayer.baseHp)} HP`);
     this.rightHpText.setText(`${Math.round(rightPlayer.baseHp)} HP`);

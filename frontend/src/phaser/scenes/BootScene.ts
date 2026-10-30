@@ -30,6 +30,8 @@ export class BootScene extends Phaser.Scene {
     const tdt = '/assets/kenney/tower-defense-top-down';
     const particles = '/assets/kenney/particle-pack';
     const icons = '/assets/kenney/board-game-icons';
+    const tiny = '/assets/tiny-swords';
+    const generated = `${tiny}/generated`;
 
     // Terrain - more grounded palette
     this.load.image('grass1', `${rts}/grass-01.png`);
@@ -55,6 +57,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('td_grass', `${tdt}/terrain-grass.png`);
     this.load.image('td_stone', `${tdt}/terrain-stone.png`);
     this.load.image('td_river', `${tdt}/river-water.png`);
+    this.load.image('tiny_ground', `${generated}/ground.png`);
+    this.load.image('tiny_water', `${generated}/water.png`);
 
     // Particles
     this.load.image('fx_spark', `${particles}/spark_01.png`);
@@ -64,36 +68,31 @@ export class BootScene extends Phaser.Scene {
     this.load.image('fx_star', `${particles}/star_01.png`);
     this.load.image('fx_light', `${particles}/light_01.png`);
     this.load.image('fx_muzzle', `${particles}/muzzle_01.png`);
+    this.load.image('fx_tiny_dust', `${generated}/dust.png`);
+    this.load.image('fx_tiny_explosion', `${generated}/explosion.png`);
+    this.load.image('fx_tiny_fire', `${generated}/fire.png`);
 
     // Icons
     this.load.image('icon_sword', `${icons}/sword.png`);
     this.load.image('icon_shield', `${icons}/shield.png`);
     this.load.image('icon_bow', `${icons}/bow.png`);
 
-    // Card art - try new cards folder first, fallback to units-neo
-    this.load.image('knight_card', '/assets/cards/knight_card.png');
-    this.load.image('archer_card', '/assets/cards/archer_card.png');
-    this.load.image('guard_card', '/assets/cards/guard_card.png');
-    this.load.image('scout_card', '/assets/cards/scout_card.png');
-    this.load.image('knight_card_fallback', '/assets/units-neo/knight_card.png');
-    this.load.image('archer_card_fallback', '/assets/units-neo/archer_card.png');
-    this.load.image('guard_card_fallback', '/assets/units-neo/guard_card.png');
-    this.load.image('scout_card_fallback', '/assets/units-neo/scout_card.png');
-
-    this.load.json('units_manifest', '/assets/units/manifest.json');
+    // Card art
+    this.load.image('knight_card', `${generated}/knight-card.png`);
+    this.load.image('archer_card', `${generated}/archer-card.png`);
+    this.load.image('guard_card', `${generated}/guard-card.png`);
+    this.load.image('scout_card', `${generated}/scout-card.png`);
+    this.load.image('tiny_tower_blue', `${tiny}/Buildings/Blue Buildings/Tower.png`);
+    this.load.image('tiny_tower_red', `${tiny}/Buildings/Red Buildings/Tower.png`);
+    this.load.image('tiny_castle_blue', `${tiny}/Buildings/Blue Buildings/Castle.png`);
+    this.load.image('tiny_castle_red', `${tiny}/Buildings/Red Buildings/Castle.png`);
+    this.load.json(
+      'units_manifest',
+      '/assets/units/tiny-swords-manifest.json',
+    );
   }
 
   create() {
-    // Use fallbacks if new cards missing
-    const cards = ['knight', 'archer', 'guard', 'scout'] as const;
-    for (const c of cards) {
-      if (!this.textures.exists(`${c}_card`) || this.textures.get(`${c}_card`).key === '__MISSING') {
-        if (this.textures.exists(`${c}_card_fallback`)) {
-          this.textures.renameTexture(`${c}_card_fallback`, `${c}_card`);
-        }
-      }
-    }
-
     const manifest = this.cache.json.get('units_manifest') as UnitsManifest | undefined;
     if (!manifest?.units) {
       console.error('Unit manifest missing; starting battle without sheets.');
@@ -124,40 +123,49 @@ export class BootScene extends Phaser.Scene {
 
   private loadUnitSheets(manifest: UnitsManifest) {
     for (const [id, def] of Object.entries(manifest.units)) {
-      this.load.spritesheet(`${id}_walk`, def.walk.file, {
-        frameWidth: def.walk.width,
-        frameHeight: def.walk.height,
-      });
-      this.load.spritesheet(`${id}_attack`, def.attack.file, {
-        frameWidth: def.attack.width,
-        frameHeight: def.attack.height,
-      });
+      for (const side of ['left', 'right'] as const) {
+        const prefix = side === 'right' ? 'Red Units' : 'Blue Units';
+        const walkFile = def.walk.file.replace('Blue Units', prefix);
+        const attackFile = def.attack.file.replace('Blue Units', prefix);
+        this.load.spritesheet(`${side}_${id}_walk`, walkFile, {
+          frameWidth: def.walk.width,
+          frameHeight: def.walk.height,
+        });
+        this.load.spritesheet(`${side}_${id}_attack`, attackFile, {
+          frameWidth: def.attack.width,
+          frameHeight: def.attack.height,
+        });
+      }
     }
   }
 
   private createUnitAnims(manifest: UnitsManifest) {
     for (const [id, def] of Object.entries(manifest.units)) {
-      if (!this.anims.exists(`${id}_walk`)) {
-        this.anims.create({
-          key: `${id}_walk`,
-          frames: this.anims.generateFrameNumbers(`${id}_walk`, {
-            start: 0,
-            end: def.walk.frames - 1,
-          }),
-          frameRate: def.walk.fps,
-          repeat: -1,
-        });
-      }
-      if (!this.anims.exists(`${id}_attack`)) {
-        this.anims.create({
-          key: `${id}_attack`,
-          frames: this.anims.generateFrameNumbers(`${id}_attack`, {
-            start: 0,
-            end: def.attack.frames - 1,
-          }),
-          frameRate: def.attack.fps,
-          repeat: 0,
-        });
+      for (const side of ['left', 'right'] as const) {
+        const walkKey = `${side}_${id}_walk`;
+        const attackKey = `${side}_${id}_attack`;
+        if (!this.anims.exists(walkKey)) {
+          this.anims.create({
+            key: walkKey,
+            frames: this.anims.generateFrameNumbers(walkKey, {
+              start: 0,
+              end: def.walk.frames - 1,
+            }),
+            frameRate: def.walk.fps,
+            repeat: -1,
+          });
+        }
+        if (!this.anims.exists(attackKey)) {
+          this.anims.create({
+            key: attackKey,
+            frames: this.anims.generateFrameNumbers(attackKey, {
+              start: 0,
+              end: def.attack.frames - 1,
+            }),
+            frameRate: def.attack.fps,
+            repeat: 0,
+          });
+        }
       }
     }
 

@@ -99,17 +99,11 @@ export function CardArt({ cardId, className = '' }: CardArtProps) {
 
       {!failed && (
         <img
-          src={`/assets/cards/${cardId}_card.png`}
+          src={`/assets/tiny-swords/generated/${cardId}-card.png`}
           alt=""
           draggable={false}
-          onError={(e) => {
-            // Fallback to unit sprite if card png fails
-            const target = e.currentTarget;
-            if (!target.src.includes(`/assets/units/${cardId}.png`)) {
-              target.src = `/assets/units/${cardId}.png`;
-            } else {
-              setFailed(true);
-            }
+          onError={() => {
+            setFailed(true);
           }}
           className="pointer-events-none absolute inset-x-0 bottom-[-2px] mx-auto h-[90%] w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.85)] filter transition-transform duration-300 group-hover:scale-105"
         />

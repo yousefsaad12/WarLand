@@ -26,6 +26,14 @@ export const COLORS = {
   highlight: 0xffe7a3,
 } as const;
 
+export function teamColor(side: 'LEFT' | 'RIGHT'): number {
+  return side === 'LEFT' ? COLORS.teamLeft : COLORS.teamRight;
+}
+
+export function teamTextColor(side: 'LEFT' | 'RIGHT'): string {
+  return side === 'LEFT' ? '#9fc8ff' : '#ffaaa8';
+}
+
 export const CARD_ACCENT: Record<string, number> = {
   knight: 0xf0c674,
   guard: 0x9fc3ff,
