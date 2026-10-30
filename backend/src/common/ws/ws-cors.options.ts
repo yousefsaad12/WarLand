@@ -1,7 +1,5 @@
-export function getWebSocketCorsOrigin(): string | string[] {
-  const configuredOrigins = process.env.WARLAND_ALLOWED_ORIGINS?.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+export const WARLAND_FRONTEND_ORIGIN = 'https://war-land.vercel.app';
 
-  return configuredOrigins?.length ? configuredOrigins : '*';
+export function getWebSocketCorsOrigin(): string | string[] {
+  return WARLAND_FRONTEND_ORIGIN;
 }
