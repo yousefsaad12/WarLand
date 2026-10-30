@@ -1,3 +1,4 @@
+
 name: Build and deploy Node.js app to Azure Web App - WarLand
 
 on:
@@ -25,33 +26,42 @@ jobs:
           node-version: '24.x'
           cache: npm
 
-      # Prisma config reads DATABASE_URL during generation.
-      # This placeholder is only for CI installation and generation.
+      # 3. Install all dependencies for building and testing
       - name: Install dependencies
         run: npm ci
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/warland
           DIRECT_URL: postgresql://ci:ci@localhost:5432/warland
 
-      # 3. Generate Prisma Client
+      # 4. Generate Prisma Client
       - name: Generate Prisma Client
         run: npm run prisma:generate -w backend
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/warland
           DIRECT_URL: postgresql://ci:ci@localhost:5432/warland
 
-      # 4. Compile NestJS backend
+      # 5. Build NestJS backend
       - name: Build backend
         run: npm run build -w backend
 
-      # 5. Run backend tests
+      # 6. Run backend tests
       - name: Run backend tests
         run: npm test -w backend
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/warland
           DIRECT_URL: postgresql://ci:ci@localhost:5432/warland
 
-      # 6. Upload deployment files
+      # 7. Remove development dependencies
+      - name: Install production-only dependencies
+        run: npm prune --omit=dev
+
+      # 8. Verify runtime dependencies
+      - name: Verify production dependencies
+        run: |
+          npm ls dotenv -w backend --omit=dev
+          test -d node_modules/dotenv
+
+      # 9. Upload deployment artifact
       - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
@@ -59,6 +69,7 @@ jobs:
           path: |
             package.json
             package-lock.json
+            node_modules/
             backend/
             frontend/package.json
           if-no-files-found: error
@@ -73,7 +84,7 @@ jobs:
       contents: read
 
     steps:
-      # 1. Download successful build artifact
+      # 1. Download deployment artifact
       - name: Download deployment artifact
         uses: actions/download-artifact@v4
         with:
