@@ -25,7 +25,7 @@ jobs:
           node-version: '24.x'
           cache: npm
 
-      # 3. Install all dependencies for building and testing
+      # 3. Install all dependencies
       - name: Install dependencies
         run: npm ci
         env:
@@ -54,21 +54,30 @@ jobs:
       - name: Install production-only dependencies
         run: npm prune --omit=dev
 
-      # 8. Verify runtime dependencies
+      # 8. Verify production dependencies
       - name: Verify production dependencies
         run: |
           npm ls dotenv -w backend --omit=dev
           test -d node_modules/dotenv
-      # 9. Verify deployment files
+          test -d node_modules/@prisma/client
+
+      # 9. Verify generated Prisma Client
+      - name: Verify Prisma Client
+        run: |
+          test -f node_modules/.prisma/client/index.js
+          node --input-type=module -e "import { PrismaClient } from '@prisma/client'; console.log('Prisma Client loaded:', typeof PrismaClient)"
+
+      # 10. Verify deployment files
       - name: Verify deployment files
         run: |
           test -f backend/dist/main.js
           test -f backend/package.json
           test -d node_modules/dotenv
           test -d node_modules/@prisma/client
+          test -f node_modules/.prisma/client/index.js
           echo "Deployment artifact is ready."
 
-      # 9. Upload deployment artifact
+      # 11. Upload deployment artifact
       - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
@@ -79,6 +88,9 @@ jobs:
             node_modules/
             backend/
             frontend/package.json
+            !**/.env
+            !**/.env.*
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
