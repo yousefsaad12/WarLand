@@ -1,4 +1,3 @@
-
 name: Build and deploy Node.js app to Azure Web App - WarLand
 
 on:
@@ -60,6 +59,14 @@ jobs:
         run: |
           npm ls dotenv -w backend --omit=dev
           test -d node_modules/dotenv
+      # 9. Verify deployment files
+      - name: Verify deployment files
+        run: |
+          test -f backend/dist/main.js
+          test -f backend/package.json
+          test -d node_modules/dotenv
+          test -d node_modules/@prisma/client
+          echo "Deployment artifact is ready."
 
       # 9. Upload deployment artifact
       - name: Upload deployment artifact
