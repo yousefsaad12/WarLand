@@ -41,4 +41,4 @@ export const CARD_ACCENT: Record<string, number> = {
   archer: 0xb8e6a1,
 };
 
-export const UNIT_BODY_HEIGHT = 48;
+export const UNIT_BODY_HEIGHT = 96;

@@ -290,18 +290,18 @@ export class UnitManager {
     const container = this.scene.add.container(pos.x, pos.y);
     this.layer.add(container);
 
-    const shadow = this.scene.add.ellipse(0, 6, 26, 10, 0x000000, 0.32);
+    const shadow = this.scene.add.ellipse(0, 10, 48, 17, 0x000000, 0.32);
     const factionColor = teamColor(unit.owner);
     const ring = this.scene.add.circle(
       0,
       4,
-      14,
+      24,
       factionColor,
       0.3,
     );
     const teamGlow = this.scene.add
       .image(0, 2, 'fx_radial_soft')
-      .setDisplaySize(42, 24)
+      .setDisplaySize(68, 40)
       .setTint(factionColor)
       .setAlpha(0.2)
       .setBlendMode(Phaser.BlendModes.ADD);
@@ -316,14 +316,14 @@ export class UnitManager {
     const hpBg = this.scene.add.rectangle(
       0,
       -UNIT_BODY_HEIGHT - 6,
-      34,
+      52,
       5,
       COLORS.ink900,
     );
     hpBg.setStrokeStyle(1, 0x000000, 0.6);
     hpBg.setVisible(false);
     const hpBar = this.scene.add
-      .rectangle(-16, -UNIT_BODY_HEIGHT - 6, 32, 3, COLORS.hp)
+      .rectangle(-26, -UNIT_BODY_HEIGHT - 8, 52, 5, COLORS.hp)
       .setOrigin(0, 0.5);
     hpBar.setVisible(false);
 
@@ -434,7 +434,7 @@ export class UnitManager {
     const damaged = ratio < 0.999;
     u.hpBg.setVisible(damaged);
     u.hpBar.setVisible(damaged);
-    u.hpBar.width = Math.max(1, 32 * ratio);
+    u.hpBar.width = Math.max(1, 52 * ratio);
     u.hpBar.setFillStyle(ratio < 0.33 ? COLORS.hpLow : COLORS.hp);
 
     const pos = mapToScreen(layout, unit.x, unit.y);
