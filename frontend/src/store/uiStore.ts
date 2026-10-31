@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sfx } from '@/phaser/audio/SfxManager';
 
-export type Screen = 'auth' | 'lobby' | 'game';
+export type Screen = 'auth' | 'lobby' | 'leaderboard' | 'game';
 
 export type ToastKind = 'info' | 'success' | 'error';
 

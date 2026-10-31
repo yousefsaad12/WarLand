@@ -6,12 +6,7 @@ import { Panel } from '@/components/Panel';
 import { CardArt } from '@/components/CardArt';
 import { AudioToggle } from '@/features/game/components/AudioToggle';
 import { fetchProfile } from '@/network/authApi';
-import { fetchLeaderboard } from '@/network/playerApi';
-import type {
-  LeaderboardEntry,
-  OwnedCard,
-  PlayerProfile,
-} from '@/network/protocol';
+import type { OwnedCard, PlayerProfile } from '@/network/protocol';
 import { useMatchmakingStore } from '@/store/matchmakingStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useGameStore } from '@/store/gameStore';
@@ -51,8 +46,6 @@ export function LobbyScreen() {
   const pushToast = useUiStore((s) => s.pushToast);
 
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [inspectedCard, setInspectedCard] = useState<OwnedCard | null>(null);
   const searchStart = useRef<number | null>(null);
@@ -72,19 +65,6 @@ export function LobbyScreen() {
         if (!active) return;
         setProfile(null);
         pushToast('error', `Could not load your profile: ${messageOf(error)}`);
-      });
-    void fetchLeaderboard(10)
-      .then((rows) => {
-        if (!active) return;
-        setLeaderboard(rows);
-        setLeaderboardError(null);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setLeaderboard([]);
-        const message = messageOf(error);
-        setLeaderboardError(message);
-        pushToast('error', `Could not load the leaderboard: ${message}`);
       });
     return () => {
       active = false;
@@ -277,65 +257,32 @@ export function LobbyScreen() {
             </div>
           </Panel>
 
-          <Panel className="order-1 max-h-[250px] overflow-y-auto bg-gradient-to-b from-[#111723]/95 to-[#080b12]/[0.98] motion-safe:animate-rise p-5 sm:max-h-[270px] sm:p-6 [animation-delay:180ms]">
-            <div className="mb-4 flex items-start justify-between gap-4 sm:mb-5">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
-                  Leaderboard
-                </p>
-                <p className="mt-1 text-base font-semibold text-slate-100 sm:text-lg">
-                  Top Commanders
-                </p>
+          <Panel className="order-1 bg-gradient-to-b from-[#111723]/95 to-[#080b12]/[0.98] motion-safe:animate-rise p-5 sm:p-6 [animation-delay:180ms]">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-gold/25 bg-gold/10 text-gold">
+                  <Icon name="trophy" className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.6em] text-slate-500">
+                    Rankings
+                  </p>
+                  <p className="mt-0.5 text-base font-semibold text-slate-100 sm:text-lg">
+                    Top Commanders
+                  </p>
+                </div>
               </div>
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-gold/25 bg-gold/10 text-gold">
-                <Icon name="trophy" className="h-4 w-4" />
-              </div>
+              <Button
+                variant="secondary"
+                className="shrink-0 px-3 py-1.5 text-xs sm:px-4"
+                onClick={() => setScreen('leaderboard')}
+              >
+                View
+              </Button>
             </div>
-            {leaderboardError ? (
-              <p className="text-sm text-amber-300">
-                Leaderboard unavailable: {leaderboardError}
-              </p>
-            ) : leaderboard.length === 0 ? (
-              <p className="text-sm text-slate-500">No ranked players yet.</p>
-            ) : (
-              <ol className="space-y-1.5">
-                {leaderboard.map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex items-center justify-between rounded-xl border border-transparent px-2.5 py-2.5 text-sm transition-colors hover:border-white/5 hover:bg-white/[0.03] sm:px-3"
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span
-                        className={[
-                          'grid h-7 w-7 shrink-0 place-items-center rounded-lg border font-mono text-xs font-semibold',
-                          row.rank === 1
-                            ? 'border-gold/50 bg-gold/15 text-gold'
-                            : row.rank === 2
-                              ? 'border-slate-300/30 bg-slate-300/10 text-slate-200'
-                              : row.rank === 3
-                                ? 'border-amber-700/40 bg-amber-800/15 text-amber-300'
-                                : 'border-white/5 bg-white/[0.02] text-slate-500',
-                        ].join(' ')}
-                      >
-                        {row.rank}
-                      </span>
-                      <span className="min-w-0 truncate text-slate-200">
-                        {row.displayName}
-                        <span className="text-slate-600">#{row.tag}</span>
-                      </span>
-                    </span>
-                    <span className="ml-3 shrink-0 text-right">
-                      <span className="block font-mono text-sm font-semibold text-gold">
-                        {row.rating}
-                      </span>
-                      <span className="block text-[9px] uppercase tracking-[0.2em] text-slate-600">
-                        rating
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              See where you stand against every commander in the war.
+            </p>
           </Panel>
         </div>
       </main>

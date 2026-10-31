@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AuthScreen } from '@/features/auth/AuthScreen';
 import { LobbyScreen } from '@/features/lobby/LobbyScreen';
+import { LeaderboardScreen } from '@/features/leaderboard/LeaderboardScreen';
 import { GameScreen } from '@/features/game/GameScreen';
 import { Toasts } from '@/components/Toasts';
 import { useSessionStore } from '@/store/sessionStore';
@@ -51,6 +52,7 @@ export function App() {
     <div className="h-full">
       {screen === 'auth' && <AuthScreen />}
       {screen === 'lobby' && <LobbyScreen />}
+      {screen === 'leaderboard' && <LeaderboardScreen />}
       {screen === 'game' && <GameScreen />}
       <Toasts />
     </div>
