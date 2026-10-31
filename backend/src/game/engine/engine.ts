@@ -288,11 +288,12 @@ export function advanceMatch(
     );
   }
 
+  // Deployments are created at the position chosen by the player. They begin
+  // moving on the following tick rather than being advanced immediately.
+  moveUnits(next);
   const deployResults = commands.map((command) =>
     processDeployCommand(next, command),
   );
-
-  moveUnits(next);
   // `next.tick` is incremented right after this call, so the tick recorded on
   // each attack event is the tick the client will see in the match view.
   resolveAttacks(next, next.tick + 1);
