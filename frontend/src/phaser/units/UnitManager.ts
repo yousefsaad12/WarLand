@@ -14,7 +14,6 @@ import type { VfxManager } from '../vfx/VfxManager';
 interface UnitVisual {
   container: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Sprite;
-  shadow: Phaser.GameObjects.Ellipse;
   ring: Phaser.GameObjects.Arc;
   teamGlow: Phaser.GameObjects.Image;
   hpBg: Phaser.GameObjects.Rectangle;
@@ -27,7 +26,6 @@ interface UnitVisual {
   baseScale: number;
   lastDustAt: number;
   spawnTime: number;
-  idlePhase: number;
   targetX: number;
   targetY: number;
   transitionStartX: number;
@@ -131,16 +129,6 @@ export class UnitManager {
         }
       }
 
-      if (!reduceMotion && !u.attacking) {
-        const shadowScale =
-          1 +
-          Math.sin(
-            this.scene.time.now / 400 + u.idlePhase + Math.PI,
-          ) *
-            0.06;
-        u.shadow.setScale(shadowScale, shadowScale * 0.8);
-      }
-
       const ratio = u.maxHp > 0 ? u.hp / u.maxHp : 1;
       if (!reduceMotion && ratio < 0.33 && ratio > 0) {
         u.sprite.setTint(
@@ -208,7 +196,8 @@ export class UnitManager {
         'attack',
       );
       if (attacker.sprite.anims.exists(attackKey)) {
-        attacker.sprite.play(attackKey);
+        attacker.sprite.setFrame(0);
+        attacker.sprite.play(attackKey, true);
         attacker.sprite.once('animationcomplete', () => {
           attacker.attacking = false;
           if (attacker.sprite.scene) {
@@ -353,7 +342,6 @@ export class UnitManager {
     const container = this.scene.add.container(pos.x, pos.y);
     this.layer.add(container);
 
-    const shadow = this.scene.add.ellipse(0, 4, 48, 17, 0x000000, 0.32);
     const factionColor = teamColor(unit.owner);
     const ring = this.scene.add.circle(
       0,
@@ -390,27 +378,18 @@ export class UnitManager {
       .setOrigin(0, 0.5);
     hpBar.setVisible(false);
 
-    container.add([teamGlow, shadow, ring, sprite, hpBg, hpBar]);
+    container.add([teamGlow, ring, sprite, hpBg, hpBar]);
 
     if (!reduceMotion) {
       // Dramatic spawn-in: scale up with bounce + fade in
       container.setScale(0.3);
       container.setAlpha(0);
-      shadow.setScale(0.2);
       this.scene.tweens.add({
         targets: container,
         scale: 1,
         alpha: 1,
         duration: 340,
         ease: 'Back.easeOut',
-      });
-      // Shadow grows to full size
-      this.scene.tweens.add({
-        targets: shadow,
-        scaleX: 1,
-        scaleY: 1,
-        duration: 340,
-        ease: 'Cubic.easeOut',
       });
       // Team ring pulses
       this.scene.tweens.add({
@@ -464,7 +443,6 @@ export class UnitManager {
     this.units.set(unit.id, {
       container,
       sprite,
-      shadow,
       ring,
       teamGlow,
       hpBg,
@@ -477,7 +455,6 @@ export class UnitManager {
       baseScale,
       lastDustAt: 0,
       spawnTime: this.scene.time.now,
-      idlePhase: Math.random() * Math.PI * 2,
       targetX: pos.x,
       targetY: pos.y,
       transitionStartX: pos.x,
