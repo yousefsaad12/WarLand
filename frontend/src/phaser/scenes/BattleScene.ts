@@ -229,7 +229,7 @@ export class BattleScene extends Phaser.Scene {
     this.ghost = this.add.container(0, 0);
     this.ghost.setDepth(20);
     this.ghost.setVisible(false);
-    this.ghostSprite = this.add.image(0, -8, 'knight_card');
+    this.ghostSprite = this.add.image(0, -23, 'knight_card');
     this.ghostSprite.setDisplaySize(46, 46);
     this.ghostSprite.setAlpha(0.6);
     this.ghostRing = this.add.circle(0, 4, 20, COLORS.hp, 0);

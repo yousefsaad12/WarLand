@@ -107,6 +107,7 @@ export class BootScene extends Phaser.Scene {
       if (started) return;
       started = true;
       this.createUnitAnims(manifest);
+      this.computeUnitAnchors(manifest);
       this.scene.start('BattleScene');
     };
 
@@ -114,6 +115,7 @@ export class BootScene extends Phaser.Scene {
     this.load.once(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: { key?: string }) => {
       console.warn('Asset failed to load:', file?.key ?? file);
     });
+
 
     this.load.start();
     this.time.delayedCall(0, () => {
@@ -170,5 +172,68 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.registry.set('unitsManifest', manifest);
+  }
+
+  /**
+   * Unit sheets are square frames with a lot of transparent padding below the
+   * characters' feet. Anchoring them with origin y = 1 makes them render well
+   * above the tapped deploy point. Measure the lowest opaque row of each
+   * animation and store the real feet ratio so sprites can stand on the ground.
+   */
+  private computeUnitAnchors(manifest: UnitsManifest) {
+    const anchors: Record<string, number> = {};
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      this.registry.set('unitAnchors', anchors);
+      return;
+    }
+
+    for (const [id, def] of Object.entries(manifest.units)) {
+      for (const side of ['left', 'right'] as const) {
+        for (const kind of ['walk', 'attack'] as const) {
+          const anim = def[kind];
+          const key = `${side}_${id}_${kind}`;
+          const texture = this.textures.get(key);
+          if (!texture || texture.key === '__MISSING') continue;
+
+          const source = texture.getSourceImage() as
+            | HTMLImageElement
+            | HTMLCanvasElement;
+          canvas.width = source.width;
+          canvas.height = source.height;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(source as CanvasImageSource, 0, 0);
+          const pixels = ctx.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+          ).data;
+
+          let maxBottom = -1;
+          for (let f = 0; f < anim.frames; f += 1) {
+            const x0 = f * anim.width;
+            for (let y = anim.height - 1; y > maxBottom; y -= 1) {
+              let found = false;
+              for (let x = 0; x < anim.width; x += 1) {
+                if (pixels[(y * canvas.width + (x0 + x)) * 4 + 3] > 8) {
+                  found = true;
+                  break;
+                }
+              }
+              if (found) {
+                maxBottom = y;
+                break;
+              }
+            }
+          }
+
+          anchors[key] = maxBottom >= 0 ? (maxBottom + 1) / anim.height : 1;
+        }
+      }
+    }
+
+    this.registry.set('unitAnchors', anchors);
   }
 }

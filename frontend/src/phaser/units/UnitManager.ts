@@ -44,6 +44,8 @@ interface UnitsManifest {
   >;
 }
 
+type UnitAnchors = Record<string, number>;
+
 export class UnitManager {
   private units = new Map<string, UnitVisual>();
   private layer: Phaser.GameObjects.Container;
@@ -367,7 +369,7 @@ export class UnitManager {
       .setBlendMode(Phaser.BlendModes.ADD);
     const walkKey = this.animationKey(unit.owner, unit.cardId, 'walk');
     const sprite = this.scene.add.sprite(0, 0, walkKey);
-    sprite.setOrigin(0.5, 1);
+    sprite.setOrigin(0.5, this.anchorFor(walkKey));
     const baseScale = this.scaleFor(unit.cardId, 'walk');
     sprite.setScale(baseScale);
     sprite.play(walkKey);
@@ -672,17 +674,26 @@ export class UnitManager {
     return `${owner === 'RIGHT' ? 'right' : 'left'}_${cardId}_${kind}`;
   }
 
-  private applyWalkScale(
-    u: Pick<UnitVisual, 'sprite' | 'cardId'> & Partial<UnitVisual>,
-  ) {
+  private applyWalkScale(u: UnitVisual) {
     const scale = this.scaleFor(u.cardId, 'walk');
+    const key = this.animationKey(u.owner, u.cardId, 'walk');
     u.sprite.setScale(scale);
-    if ('baseScale' in u) u.baseScale = scale;
+    u.sprite.setOrigin(0.5, this.anchorFor(key));
+    u.baseScale = scale;
   }
 
   private applyAttackScale(u: UnitVisual) {
     const scale = this.scaleFor(u.cardId, 'attack');
+    const key = this.animationKey(u.owner, u.cardId, 'attack');
     u.sprite.setScale(scale);
+    u.sprite.setOrigin(0.5, this.anchorFor(key));
     u.baseScale = scale;
+  }
+
+  private anchorFor(animKey: string): number {
+    const anchors = this.scene.registry.get('unitAnchors') as
+      | UnitAnchors
+      | undefined;
+    return anchors?.[animKey] ?? 1;
   }
 }
