@@ -291,6 +291,7 @@ export function advanceMatch(
   // Deployments are created at the position chosen by the player. They begin
   // moving on the following tick rather than being advanced immediately.
   moveUnits(next);
+  const firstNewSpawnSequence = next.nextSpawnSequence;
   const deployResults = commands.map((command) =>
     processDeployCommand(next, command),
   );
@@ -298,7 +299,7 @@ export function advanceMatch(
   // each attack event is the tick the client will see in the match view.
   resolveAttacks(next, next.tick + 1);
   removeDefeatedUnits(next);
-  separateUnits(next);
+  separateUnits(next, firstNewSpawnSequence);
 
   next.tick += 1;
   pruneRequestLedger(next);
@@ -955,7 +956,10 @@ function removeDefeatedUnits(state: MatchState): void {
  * Deterministic: units are processed in spawn order, and exact overlaps
  * split along the y axis.
  */
-function separateUnits(state: MatchState): void {
+function separateUnits(
+  state: MatchState,
+  firstNewSpawnSequence = Number.POSITIVE_INFINITY,
+): void {
   const minDistance = state.rules.unitSeparation;
   if (minDistance <= 0 || state.units.length < 2) {
     return;
@@ -975,11 +979,22 @@ function separateUnits(state: MatchState): void {
 
         const nx = gap <= POSITION_EPSILON ? 0 : dx / gap;
         const ny = gap <= POSITION_EPSILON ? 1 : dy / gap;
-        const push = (minDistance - gap) / 2;
-        a.x -= nx * push;
-        a.y -= ny * push;
-        b.x += nx * push;
-        b.y += ny * push;
+        const push = minDistance - gap;
+        const aIsNew = a.spawnSequence >= firstNewSpawnSequence;
+        const bIsNew = b.spawnSequence >= firstNewSpawnSequence;
+        if (aIsNew && !bIsNew) {
+          b.x += nx * push;
+          b.y += ny * push;
+        } else if (!aIsNew && bIsNew) {
+          a.x -= nx * push;
+          a.y -= ny * push;
+        } else {
+          const halfPush = push / 2;
+          a.x -= nx * halfPush;
+          a.y -= ny * halfPush;
+          b.x += nx * halfPush;
+          b.y += ny * halfPush;
+        }
       }
     }
   }

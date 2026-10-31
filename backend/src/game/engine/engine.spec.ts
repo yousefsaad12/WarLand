@@ -146,6 +146,20 @@ describe('advanceMatch - deployment validation', () => {
     expect(result.deployResults[0]).toMatchObject({ status: 'ACCEPTED' });
     expect(result.state.units).toHaveLength(1);
     expect(result.state.units[0]!.owner).toBe('LEFT');
+    expect(result.state.units[0]).toMatchObject({ x: 10, y: 50 });
+  });
+
+  it('keeps a new deployment at its requested position when units overlap', () => {
+    const state = advanceMatch(newState(), [
+      { requestId: 'r1', playerId: 'p1', cardId: 'knight', x: 10, y: 50 },
+    ]).state;
+    const result = advanceMatch(state, [
+      { requestId: 'r2', playerId: 'p1', cardId: 'archer', x: 10, y: 50 },
+    ]);
+
+    expect(result.state.units).toHaveLength(2);
+    expect(result.state.units[1]).toMatchObject({ x: 10, y: 50 });
+    expect(result.state.units[0]!.y).toBeLessThan(50);
   });
 
   it('rejects a deployment on the midline river', () => {
