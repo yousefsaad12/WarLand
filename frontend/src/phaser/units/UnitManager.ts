@@ -195,10 +195,15 @@ export class UnitManager {
         attacker.cardId,
         'attack',
       );
-      if (attacker.sprite.anims.exists(attackKey)) {
+      if (this.scene.anims.exists(attackKey)) {
+        attacker.sprite.anims.stop();
+        attacker.sprite.setTexture(attackKey, 0);
         attacker.sprite.setFrame(0);
         attacker.sprite.play(attackKey, true);
-        attacker.sprite.once('animationcomplete', () => {
+        let finished = false;
+        const finishAttack = () => {
+          if (finished) return;
+          finished = true;
           attacker.attacking = false;
           if (attacker.sprite.scene) {
             this.applyWalkScale(attacker);
@@ -206,7 +211,11 @@ export class UnitManager {
               this.animationKey(attacker.owner, attacker.cardId, 'walk'),
             );
           }
+        };
+        attacker.sprite.once('animationcomplete', () => {
+          finishAttack();
         });
+        this.scene.time.delayedCall(1500, finishAttack);
       } else {
         attacker.attacking = false;
       }
