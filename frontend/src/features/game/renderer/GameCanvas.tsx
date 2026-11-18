@@ -66,5 +66,10 @@ export function GameCanvas() {
     };
   }, []);
 
-  return <div ref={hostRef} className="absolute inset-0 h-full w-full" />;
+  return (
+    <div
+      ref={hostRef}
+      className="game-canvas-host absolute inset-0 h-full w-full"
+    />
+  );
 }

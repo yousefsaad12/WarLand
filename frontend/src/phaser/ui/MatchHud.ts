@@ -372,8 +372,13 @@ export class MatchHud {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
     const isMobile = w < 640;
+    const isPortrait = h > w;
     const boxX = isMobile ? Math.floor(w / 2 - 76) : 24;
-    const boxY = isMobile ? h - 162 : h - 150;
+    const boxY = isMobile
+      ? isPortrait
+        ? h - 214
+        : h - 162
+      : h - 150;
     const box = this.scene.add.container(boxX, boxY);
 
     const bg = this.scene.add.graphics();
@@ -433,7 +438,7 @@ export class MatchHud {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
     const isMobile = w < 640;
-    this.handRoot = this.scene.add.container(w / 2, isMobile ? h - 74 : h - 84);
+    this.handRoot = this.scene.add.container(w / 2, isMobile ? h - 68 : h - 84);
     this.root.add(this.handRoot);
   }
 
@@ -441,7 +446,8 @@ export class MatchHud {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
     const isMobile = w < 640;
-    this.hintText = this.scene.add.text(w / 2, isMobile ? h - 186 : h - 180, '', {
+    const isPortrait = h > w;
+    this.hintText = this.scene.add.text(w / 2, isMobile ? (isPortrait ? h - 244 : h - 186) : h - 180, '', {
       fontFamily: FONT_UI,
       fontSize: isMobile ? '10px' : '12px',
       color: '#8fa0b8',
@@ -532,10 +538,12 @@ export class MatchHud {
     const height = this.scene.scale.height;
     const isMobile = width < 640;
     const handShift = isMobile ? 0 : width < 900 ? 34 : 0;
-    const handY = isMobile ? height - 74 : height - 84;
+    const handY = isMobile ? height - 68 : height - 84;
     this.handRoot.setPosition(width / 2 + handShift, handY);
     this.handRoot.setScale(
-      Phaser.Math.Clamp((width - 32) / 380, 0.65, 1),
+      isMobile
+        ? Phaser.Math.Clamp((width - 24) / 390, 0.62, 0.94)
+        : Phaser.Math.Clamp((width - 32) / 380, 0.65, 1),
     );
     this.hintText.setX(width / 2 + (isMobile ? 0 : handShift * 0.4));
 

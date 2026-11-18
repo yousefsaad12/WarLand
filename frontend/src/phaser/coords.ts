@@ -31,9 +31,31 @@ export function computeArenaLayout(
   screenW: number,
   screenH: number,
 ): ArenaLayout {
-  const topPad = Math.max(72, screenH * 0.1);
-  const bottomPad = Math.max(168, screenH * 0.22);
-  const sidePad = Math.max(16, screenW * 0.02);
+  const isMobile = screenW < 640;
+  const isShort = screenH < 600;
+  const isPortrait = screenH > screenW;
+
+  const topPad = isMobile
+    ? isShort
+      ? 58
+      : isPortrait
+        ? 54
+        : 66
+    : isShort
+      ? 62
+      : Math.max(72, screenH * 0.1);
+  const bottomPad = isMobile
+    ? isShort
+      ? 118
+      : isPortrait
+        ? 138
+        : 118
+    : isShort
+      ? 124
+      : Math.max(168, screenH * 0.22);
+  const sidePad = isMobile
+    ? Math.max(8, screenW * 0.018)
+    : Math.max(16, screenW * 0.02);
 
   const availW = screenW - sidePad * 2;
   const availH = screenH - topPad - bottomPad;

@@ -121,7 +121,9 @@ export class ArenaView {
     for (const side of ['LEFT', 'RIGHT'] as const) {
       const b = this.bases[side];
       if (b && !b.destroyed && b.crystal) {
-        const bob = Math.sin(time / 480 + (side === 'LEFT' ? 0 : 2.5)) * 3.5;
+        const bob =
+          Math.sin(time / 480 + (side === 'LEFT' ? 0 : 2.5)) *
+          Math.max(2, b.keepHeight * 0.028);
         b.crystal.y = b.crystalBaseY + bob;
         b.crystalAura.y = b.crystalBaseY + bob;
         b.crystalRing.y = b.crystalBaseY + bob;
@@ -167,7 +169,11 @@ export class ArenaView {
       yoyo: true,
     });
     const ring = this.scene.add
-      .circle(base.pos.x, base.pos.y - base.keepHeight * 0.32, 18)
+      .circle(
+        base.pos.x,
+        base.pos.y - base.keepHeight * 0.32,
+        Math.max(11, base.keepHeight * 0.14),
+      )
       .setStrokeStyle(3, 0xff6b6b, 0.9);
     this.scene.tweens.add({
       targets: ring,
@@ -763,9 +769,15 @@ export class ArenaView {
   }
 
   private drawBases() {
-    const keepHeight = Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220);
+    const isMobile = this.scene.scale.width < 640;
+    const towerScale = isMobile
+      ? Phaser.Math.Clamp(this.layout.scale / 9.2, 0.38, 0.62)
+      : Phaser.Math.Clamp(this.layout.scale / 6.5, 0.62, 1.08);
+    const keepHeight =
+      Phaser.Math.Clamp(this.layout.height * 0.22, 108, 220) * towerScale;
     const keepScale = keepHeight / 128;
-    const towerHeight = TOWER_DISPLAY_HEIGHT;
+    const towerHeight = TOWER_DISPLAY_HEIGHT * towerScale;
+    const towerWidth = TOWER_DISPLAY_WIDTH * towerScale;
     const platformW = keepHeight * 1.72;
     const platformH = platformW * 0.4;
 
@@ -851,7 +863,7 @@ export class ArenaView {
         const key = side === 'LEFT' ? 'tiny_tower_blue' : 'tiny_tower_red';
         const tower = this.scene.add.sprite(tx, platformY + 2, key);
         tower.setOrigin(0.5, 1);
-        tower.setDisplaySize(TOWER_DISPLAY_WIDTH, TOWER_DISPLAY_HEIGHT);
+        tower.setDisplaySize(towerWidth, towerHeight);
         if (side === 'RIGHT') tower.setFlipX(true);
         this.root.add(tower);
         return tower;

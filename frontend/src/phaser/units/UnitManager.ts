@@ -24,6 +24,7 @@ interface UnitVisual {
   maxHp: number;
   attacking: boolean;
   baseScale: number;
+  displayScale: number;
   lastDustAt: number;
   spawnTime: number;
   targetX: number;
@@ -351,6 +352,8 @@ export class UnitManager {
   ) {
     const pos = mapToScreen(layout, unit.x, unit.y);
     const container = this.scene.add.container(pos.x, pos.y);
+    const displayScale = this.displayScaleFor(layout);
+    container.setScale(reduceMotion ? displayScale : 0.3);
     this.layer.add(container);
 
     const factionColor = teamColor(unit.owner);
@@ -397,7 +400,7 @@ export class UnitManager {
       container.setAlpha(0);
       this.scene.tweens.add({
         targets: container,
-        scale: 1,
+        scale: displayScale,
         alpha: 1,
         duration: 340,
         ease: 'Back.easeOut',
@@ -464,6 +467,7 @@ export class UnitManager {
       maxHp: unit.hp,
       attacking: false,
       baseScale,
+      displayScale,
       lastDustAt: 0,
       spawnTime: this.scene.time.now,
       targetX: pos.x,
@@ -482,6 +486,11 @@ export class UnitManager {
     tickMs: number,
     reduceMotion: boolean,
   ) {
+    const displayScale = this.displayScaleFor(layout);
+    if (Math.abs(u.displayScale - displayScale) > 0.001) {
+      u.displayScale = displayScale;
+      u.container.setScale(displayScale);
+    }
     u.maxHp = Math.max(u.maxHp, unit.hp);
     if (unit.hp < u.hp) {
       this.hitReaction(u, u.hp - unit.hp, reduceMotion);
@@ -664,6 +673,10 @@ export class UnitManager {
       UnitsManifest | undefined;
     const body = manifest?.units[cardId]?.[kind].bodyHeight ?? 32;
     return UNIT_BODY_HEIGHT / body;
+  }
+
+  private displayScaleFor(layout: ArenaLayout): number {
+    return Phaser.Math.Clamp(layout.scale / 6.5, 0.62, 1.08);
   }
 
   private animationKey(

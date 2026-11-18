@@ -58,6 +58,18 @@ input {
   }
 }
 
+.game-canvas-host {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.game-canvas-host canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .panel {
   background: linear-gradient(
     180deg,
